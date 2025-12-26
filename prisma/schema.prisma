@@ -1,0 +1,494 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NEXTAUTH MODELS
+// ─────────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────
+// USERS & AUTH
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CUSTOMER
+  OPERATOR
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  phone         String?
+  name          String?
+  image         String?
+  kennitala     String?   @unique
+  role          UserRole  @default(CUSTOMER)
+  locale        String    @default("is")
+  pin           String?   // Hashed PIN for staff login (operators/admins only)
+
+  accounts      Account[]
+  sessions      Session[]
+  bookings      Booking[]
+  vehicles      Vehicle[]
+  reglaCustomer ReglaCustomer?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// VEHICLES & TYPES
+// ─────────────────────────────────────────────────────────────
+
+model VehicleType {
+  id        String @id @default(cuid())
+  name      String
+  nameEn    String
+  code      String @unique
+  sortOrder Int    @default(0)
+
+  vehicles    Vehicle[]
+  pricing     LotPricing[]
+  lotServices LotService[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Vehicle {
+  id           String  @id @default(cuid())
+  licensePlate String  @unique
+
+  make        String?
+  model       String?
+  year        Int?
+  color       String?
+  fuelType    String?
+  isElectric  Boolean @default(false)
+  rawApiData  Json?
+  lastApiSync DateTime?
+
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id])
+  vehicleTypeId String
+
+  owner   User?   @relation(fields: [ownerId], references: [id])
+  ownerId String?
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([licensePlate])
+}
+
+// ─────────────────────────────────────────────────────────────
+// PARKING LOTS & CAPACITY
+// ─────────────────────────────────────────────────────────────
+
+model Lot {
+  id        String  @id @default(cuid())
+  name      String
+  nameEn    String
+  slug      String  @unique
+  address   String?
+  latitude  Float?
+  longitude Float?
+
+  totalSpaces Int
+  isActive    Boolean @default(true)
+
+  instructions   String? @db.Text
+  instructionsEn String? @db.Text
+
+  pricing  LotPricing[]
+  services LotService[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LotPricing {
+  id String @id @default(cuid())
+
+  lot   Lot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  lotId String
+
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id])
+  vehicleTypeId String
+
+  baseFee         Int       @default(0)   // One-time base fee (e.g., 7000 ISK)
+  pricePerDay     Int                      // Daily rate (e.g., 600 ISK)
+  weeklyDiscount  Float?    @default(0)
+  monthlyDiscount Float?    @default(0)
+  isActive        Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lotId, vehicleTypeId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// ADD-ON SERVICES
+// ─────────────────────────────────────────────────────────────
+
+model ServiceCategory {
+  id        String  @id @default(cuid())
+  name      String
+  nameEn    String
+  code      String  @unique
+  icon      String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  services Service[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Service {
+  id            String  @id @default(cuid())
+  name          String
+  nameEn        String
+  description   String? @db.Text
+  descriptionEn String? @db.Text
+  code          String  @unique
+  icon          String?
+  sortOrder     Int     @default(0)
+  isActive      Boolean @default(true)
+
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+
+  lotServices   LotService[]
+  bookingAddons BookingAddon[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LotService {
+  id String @id @default(cuid())
+
+  lot   Lot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  lotId String
+
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String
+
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id])
+  vehicleTypeId String
+
+  price       Int
+  isAvailable Boolean @default(true)
+  pricePerKwh Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lotId, serviceId, vehicleTypeId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOOKINGS
+// ─────────────────────────────────────────────────────────────
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  READY
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+model Booking {
+  id        String @id @default(cuid())
+  reference String @unique
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  vehicleId String
+
+  lot   Lot    @relation(fields: [lotId], references: [id])
+  lotId String
+
+  // Guest contact info (for non-authenticated users)
+  guestName  String?
+  guestEmail String?
+  guestPhone String?
+
+  departureFlightNumber String?
+  departureFlightTime   DateTime?
+  arrivalFlightNumber   String?
+  arrivalFlightTime     DateTime?
+
+  dropOffTime   DateTime
+  pickUpTime    DateTime
+  actualDropOff DateTime?
+  actualPickUp  DateTime?
+
+  totalDays       Int
+  basePricePerDay Int
+  baseTotal       Int
+  addonsTotal     Int
+  discountAmount  Int @default(0)
+  totalPrice      Int
+
+  status        BookingStatus @default(PENDING)
+  notes         String?       @db.Text
+  internalNotes String?       @db.Text
+  spotNumber    String?
+
+  addons       BookingAddon[]
+  payment      Payment?
+  reglaInvoice ReglaInvoice?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reference])
+  @@index([status])
+  @@index([dropOffTime])
+  @@index([pickUpTime])
+}
+
+model BookingAddon {
+  id String @id @default(cuid())
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId String
+
+  service   Service @relation(fields: [serviceId], references: [id])
+  serviceId String
+
+  price       Int
+  status      AddonStatus @default(PENDING)
+  completedAt DateTime?
+  completedBy String?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookingId, serviceId])
+}
+
+enum AddonStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+// ─────────────────────────────────────────────────────────────
+// PAYMENTS
+// ─────────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Payment {
+  id String @id @default(cuid())
+
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  bookingId String  @unique
+
+  amount   Int
+  currency String @default("ISK")
+  status   PaymentStatus @default(PENDING)
+
+  provider     String?
+  providerRef  String?
+  providerData Json?
+
+  paidAt       DateTime?
+  refundedAt   DateTime?
+  refundAmount Int?
+
+  reglaPayment ReglaPayment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// FLIGHT CACHE
+// ─────────────────────────────────────────────────────────────
+
+model FlightCache {
+  id           String   @id @default(cuid())
+  flightNumber String
+  flightDate   DateTime @db.Date
+
+  scheduledTime DateTime
+  estimatedTime DateTime?
+  actualTime    DateTime?
+
+  direction   String
+  destination String?
+  airline     String?
+  rawData     Json?
+
+  fetchedAt DateTime @default(now())
+
+  @@unique([flightNumber, flightDate, direction])
+  @@index([flightDate])
+}
+
+// ─────────────────────────────────────────────────────────────
+// REGLA ACCOUNTING INTEGRATION
+// ─────────────────────────────────────────────────────────────
+
+enum SyncStatus {
+  PENDING
+  SYNCING
+  SYNCED
+  FAILED
+  SKIPPED
+}
+
+model ReglaCustomer {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+
+  reglaCustomerId String? @unique
+  reglaCustomerNo String?
+
+  syncStatus    SyncStatus @default(PENDING)
+  lastSyncAt    DateTime?
+  lastSyncError String?
+  rawResponse   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ReglaInvoice {
+  id        String  @id @default(cuid())
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  bookingId String  @unique
+
+  reglaInvoiceId String? @unique
+  reglaInvoiceNo String?
+
+  invoiceDate DateTime
+  dueDate     DateTime
+  totalAmount Int
+  vatAmount   Int
+
+  syncStatus    SyncStatus @default(PENDING)
+  lastSyncAt    DateTime?
+  lastSyncError String?
+  rawRequest    Json?
+  rawResponse   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([syncStatus])
+}
+
+model ReglaPayment {
+  id        String  @id @default(cuid())
+  payment   Payment @relation(fields: [paymentId], references: [id])
+  paymentId String  @unique
+
+  reglaPaymentId String? @unique
+  syncStatus     SyncStatus @default(PENDING)
+  lastSyncAt     DateTime?
+  lastSyncError  String?
+  rawResponse    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ReglaSyncLog {
+  id         String     @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  status     SyncStatus
+
+  requestPayload  Json?
+  responsePayload Json?
+  errorMessage    String?
+  duration        Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SETTINGS
+// ─────────────────────────────────────────────────────────────
+
+model Setting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       Json
+  description String?
+
+  updatedAt DateTime @updatedAt
+}
