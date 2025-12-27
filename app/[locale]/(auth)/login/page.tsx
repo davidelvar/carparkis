@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, getSession, useSession } from 'next-auth/react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { Mail, Loader2, CheckCircle, AlertCircle, Car, Shield, ArrowLeft, Sparkles, Lock, Users } from 'lucide-react';
@@ -16,6 +16,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
   const error = searchParams.get('error');
+  const { data: session, status } = useSession();
 
   const [loginMode, setLoginMode] = useState<LoginMode>('customer');
   const [email, setEmail] = useState('');
@@ -23,6 +24,27 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      const role = session.user.role;
+      let redirectUrl = callbackUrl;
+      
+      // If callbackUrl is just '/' or login page, redirect based on role
+      if (callbackUrl === '/' || callbackUrl.includes('/login')) {
+        if (role === 'ADMIN') {
+          redirectUrl = `/${locale}/admin/dashboard`;
+        } else if (role === 'OPERATOR') {
+          redirectUrl = `/${locale}/operator/dashboard`;
+        } else {
+          redirectUrl = `/${locale}`;
+        }
+      }
+      
+      window.location.replace(redirectUrl);
+    }
+  }, [status, session, locale, callbackUrl]);
 
   const handleCustomerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,8 +93,12 @@ export default function LoginPage() {
           'Invalid PIN': locale === 'is' ? 'Rangur PIN' : 'Invalid PIN',
         };
         setErrorMessage(errorMap[result.error] || result.error);
+        setIsLoading(false);
       } else if (result?.ok) {
-        // Get session to check user role for redirect
+        // Wait a moment for the session cookie to be fully established
+        // Then fetch the session to determine the correct redirect
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const session = await getSession();
         let redirectUrl = callbackUrl;
         
@@ -82,14 +108,26 @@ export default function LoginPage() {
           redirectUrl = `/${locale}/operator/dashboard`;
         }
         
-        window.location.href = redirectUrl;
+        // Use router.replace for a clean navigation (no back to login)
+        window.location.replace(redirectUrl);
       }
     } catch (err) {
       setErrorMessage(locale === 'is' ? 'Óvænt villa kom upp' : 'An unexpected error occurred');
-    } finally {
       setIsLoading(false);
     }
   };
+
+  // Show loading while checking auth status
+  if (status === 'loading' || status === 'authenticated') {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 text-[#255da0] animate-spin" />
+          <p className="text-slate-600">{locale === 'is' ? 'Hleð...' : 'Loading...'}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh flex">
