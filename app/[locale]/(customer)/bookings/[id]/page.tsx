@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import {
   Car,
   Calendar,
@@ -27,6 +28,9 @@ import {
   Navigation,
   FileText,
   RotateCcw,
+  RefreshCw,
+  Zap,
+  Shield,
 } from 'lucide-react';
 import { formatPrice, cn } from '@/lib/utils';
 
@@ -158,6 +162,7 @@ export default function BookingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -165,7 +170,8 @@ export default function BookingDetailPage() {
     }
   }, [id]);
 
-  const fetchBooking = async () => {
+  const fetchBooking = async (showRefresh = false) => {
+    if (showRefresh) setIsRefreshing(true);
     try {
       const response = await fetch(`/api/bookings/${id}`);
       const result = await response.json();
@@ -179,6 +185,7 @@ export default function BookingDetailPage() {
       setError(locale === 'is' ? 'Villa við að sækja bókun' : 'Failed to load booking');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -210,36 +217,46 @@ export default function BookingDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary-600 mx-auto" />
-          <p className="mt-4 text-slate-600">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="h-16 w-16 rounded-2xl bg-primary-100 flex items-center justify-center mx-auto">
+            <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+          </div>
+          <p className="mt-4 text-slate-600 font-medium">
             {locale === 'is' ? 'Hleð bókun...' : 'Loading booking...'}
           </p>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   if (error || !booking) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="h-16 w-16 mx-auto rounded-2xl bg-red-100 flex items-center justify-center">
-            <AlertCircle className="h-8 w-8 text-red-500" />
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <div className="h-20 w-20 mx-auto rounded-2xl bg-red-100 flex items-center justify-center">
+            <AlertCircle className="h-10 w-10 text-red-500" />
           </div>
-          <h2 className="mt-4 text-xl font-semibold text-slate-900">
+          <h2 className="mt-6 text-xl font-semibold text-slate-900">
             {locale === 'is' ? 'Bókun fannst ekki' : 'Booking not found'}
           </h2>
           <p className="mt-2 text-slate-600">{error}</p>
           <Link 
             href={`/${locale}/bookings`} 
-            className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 rounded-xl bg-primary-600 text-white font-medium hover:bg-primary-500 transition-all"
+            className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 rounded-xl bg-primary-600 text-white font-medium hover:bg-primary-500 transition-all shadow-lg shadow-primary-600/25"
           >
             <ArrowLeft className="h-4 w-4" />
             {locale === 'is' ? 'Til baka' : 'Go back'}
           </Link>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -248,11 +265,41 @@ export default function BookingDetailPage() {
   const StatusIcon = statusConfig.icon;
   const isActive = !['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(booking.status);
 
+  // Calculate time remaining/since
+  const getTimeText = () => {
+    const now = new Date();
+    const dropOff = new Date(booking.dropOffTime);
+    const pickUp = new Date(booking.pickUpTime);
+    
+    if (booking.status === 'CHECKED_IN' || booking.status === 'IN_PROGRESS') {
+      const diffTime = pickUp.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) {
+        return locale === 'is' ? `${diffDays} dagar eftir` : `${diffDays} days left`;
+      }
+    }
+    
+    if (['PENDING', 'CONFIRMED'].includes(booking.status)) {
+      const diffTime = dropOff.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) return locale === 'is' ? 'Í dag' : 'Today';
+      if (diffDays === 1) return locale === 'is' ? 'Á morgun' : 'Tomorrow';
+      if (diffDays > 1) return locale === 'is' ? `Eftir ${diffDays} daga` : `In ${diffDays} days`;
+    }
+    
+    return null;
+  };
+
+  const timeText = getTimeText();
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Status Banner */}
-      <div className={cn('relative overflow-hidden', statusConfig.bg)}>
-        <div className="absolute inset-0 bg-[url('/images/pattern.svg')] opacity-10" />
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={cn('relative overflow-hidden', statusConfig.bg)}
+      >
         <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
           {/* Back Link */}
           <Link
@@ -266,13 +313,24 @@ export default function BookingDetailPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <motion.div 
+                  initial={{ scale: 0.8 }}
+                  animate={{ scale: 1 }}
+                  className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center"
+                >
                   <StatusIcon className="h-6 w-6 text-white" />
-                </div>
+                </motion.div>
                 <div>
-                  <h1 className="text-2xl font-bold text-white">
-                    {statusConfig.label[locale as 'is' | 'en']}
-                  </h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-white">
+                      {statusConfig.label[locale as 'is' | 'en']}
+                    </h1>
+                    {timeText && (
+                      <span className="px-2.5 py-1 rounded-lg bg-white/20 text-white text-sm font-medium backdrop-blur-sm">
+                        {timeText}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-white/80 text-sm">
                     {statusConfig.description[locale as 'is' | 'en']}
                   </p>
@@ -280,27 +338,37 @@ export default function BookingDetailPage() {
               </div>
             </div>
 
-            {/* Reference */}
-            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
-              <span className="text-white/70 text-sm">{t('bookingReference')}:</span>
-              <span className="font-mono font-bold text-white text-lg">
-                {booking.reference}
-              </span>
+            {/* Reference & Refresh */}
+            <div className="flex items-center gap-2">
               <button
-                onClick={copyReference}
-                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
-                title={locale === 'is' ? 'Afrita' : 'Copy'}
+                onClick={() => fetchBooking(true)}
+                disabled={isRefreshing}
+                className="p-2.5 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors disabled:opacity-50"
+                title={locale === 'is' ? 'Endurhlaða' : 'Refresh'}
               >
-                {copied ? (
-                  <Check className="h-4 w-4 text-white" />
-                ) : (
-                  <Copy className="h-4 w-4 text-white/70" />
-                )}
+                <RefreshCw className={cn('h-5 w-5 text-white', isRefreshing && 'animate-spin')} />
               </button>
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
+                <span className="text-white/70 text-sm hidden sm:inline">{t('bookingReference')}:</span>
+                <span className="font-mono font-bold text-white text-lg">
+                  {booking.reference}
+                </span>
+                <button
+                  onClick={copyReference}
+                  className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                  title={locale === 'is' ? 'Afrita' : 'Copy'}
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-white" />
+                  ) : (
+                    <Copy className="h-4 w-4 text-white/70" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Content */}
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
@@ -308,13 +376,19 @@ export default function BookingDetailPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Vehicle Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            >
               <div className="p-6">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
+                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Car className="h-4 w-4" />
                   {locale === 'is' ? 'Ökutæki' : 'Vehicle'}
                 </h2>
                 <div className="flex items-center gap-4">
-                  <div className="h-16 px-5 rounded-xl bg-slate-900 flex items-center justify-center">
+                  <div className="h-16 px-5 rounded-xl bg-slate-900 flex items-center justify-center shadow-lg">
                     <span className="font-mono font-bold text-white text-xl tracking-wider">
                       {booking.vehicle.licensePlate}
                     </span>
@@ -323,13 +397,20 @@ export default function BookingDetailPage() {
                     <p className="font-semibold text-slate-900 text-lg">
                       {booking.vehicle.make} {booking.vehicle.model}
                     </p>
-                    <p className="text-sm text-slate-500">
-                      {booking.vehicle.year && `${booking.vehicle.year} • `}
-                      {locale === 'is' 
-                        ? booking.vehicle.vehicleType.name 
-                        : (booking.vehicle.vehicleType.nameEn || booking.vehicle.vehicleType.name)}
-                      {booking.vehicle.isElectric && ' • ⚡ Rafbíll'}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-sm text-slate-500">
+                        {booking.vehicle.year && `${booking.vehicle.year} • `}
+                        {locale === 'is' 
+                          ? booking.vehicle.vehicleType.name 
+                          : (booking.vehicle.vehicleType.nameEn || booking.vehicle.vehicleType.name)}
+                      </p>
+                      {booking.vehicle.isElectric && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-xs font-medium">
+                          <Zap className="h-3 w-3" />
+                          {locale === 'is' ? 'Rafbíll' : 'Electric'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {booking.spotNumber && (
@@ -346,12 +427,18 @@ export default function BookingDetailPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {/* Schedule Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            >
               <div className="p-6">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
+                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
                   {locale === 'is' ? 'Tímaáætlun' : 'Schedule'}
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -370,9 +457,9 @@ export default function BookingDetailPage() {
                     </div>
                     <p className="text-sm text-slate-600 ml-[52px]">{formatDate(booking.dropOffTime)}</p>
                     {booking.departureFlightNumber && (
-                      <p className="text-sm text-slate-500 ml-[52px] mt-1">
+                      <div className="ml-[52px] mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-sm">
                         ✈️ {booking.departureFlightNumber}
-                      </p>
+                      </div>
                     )}
                   </div>
 
@@ -391,9 +478,9 @@ export default function BookingDetailPage() {
                     </div>
                     <p className="text-sm text-slate-600 ml-[52px]">{formatDate(booking.pickUpTime)}</p>
                     {booking.arrivalFlightNumber && (
-                      <p className="text-sm text-slate-500 ml-[52px] mt-1">
+                      <div className="ml-[52px] mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-sm">
                         ✈️ {booking.arrivalFlightNumber}
-                      </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -407,13 +494,19 @@ export default function BookingDetailPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Services Card */}
             {booking.addons.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              >
                 <div className="p-6">
-                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
+                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
                     {locale === 'is' ? 'Viðbótarþjónustur' : 'Additional Services'}
                   </h2>
                   <div className="space-y-3">
@@ -422,7 +515,7 @@ export default function BookingDetailPage() {
                       return (
                         <div
                           key={addon.id}
-                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50"
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
                         >
                           <div className="flex items-center gap-3">
                             <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -451,13 +544,19 @@ export default function BookingDetailPage() {
                     })}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* Location Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            >
               <div className="p-6">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
+                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
                   {locale === 'is' ? 'Staðsetning' : 'Location'}
                 </h2>
                 <div className="flex items-start gap-4">
@@ -476,7 +575,7 @@ export default function BookingDetailPage() {
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.lot.address)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 mt-3 text-sm text-primary-600 font-medium hover:text-primary-500"
+                        className="inline-flex items-center gap-2 mt-3 text-sm text-primary-600 font-medium hover:text-primary-500 transition-colors"
                       >
                         <Navigation className="h-4 w-4" />
                         {locale === 'is' ? 'Opna í kortum' : 'Open in Maps'}
@@ -488,7 +587,8 @@ export default function BookingDetailPage() {
 
                 {booking.lot.instructions && (
                   <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-100">
-                    <p className="text-sm font-medium text-amber-800 mb-1">
+                    <p className="text-sm font-medium text-amber-800 mb-1 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
                       {locale === 'is' ? 'Leiðbeiningar' : 'Instructions'}
                     </p>
                     <p className="text-sm text-amber-700 whitespace-pre-wrap">
@@ -499,25 +599,36 @@ export default function BookingDetailPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {/* Notes */}
             {booking.notes && (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm"
+              >
                 <div className="p-6">
-                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
+                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
                     {locale === 'is' ? 'Athugasemdir' : 'Notes'}
                   </h2>
                   <p className="text-slate-600">{booking.notes}</p>
                 </div>
-              </div>
+              </motion.div>
             )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Price Summary */}
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden sticky top-24">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden sticky top-24 shadow-sm"
+            >
               <div className="p-6">
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
                   {locale === 'is' ? 'Verðyfirlit' : 'Price Summary'}
@@ -557,53 +668,69 @@ export default function BookingDetailPage() {
 
               {/* Actions */}
               <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-2">
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 transition-colors">
+                <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
                   <Download className="h-4 w-4" />
                   {locale === 'is' ? 'Sækja kvittun' : 'Download receipt'}
                 </button>
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 transition-colors">
+                <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
                   <Mail className="h-4 w-4" />
                   {locale === 'is' ? 'Senda í tölvupóst' : 'Email confirmation'}
                 </button>
                 {isActive && (
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 font-medium text-sm hover:bg-red-50 transition-colors">
+                  <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 font-medium text-sm hover:bg-red-50 hover:border-red-300 transition-all">
                     <XCircle className="h-4 w-4" />
                     {locale === 'is' ? 'Afturkalla bókun' : 'Cancel booking'}
                   </button>
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {/* Support Card */}
-            <div className="bg-slate-900 rounded-2xl overflow-hidden">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-slate-900 rounded-2xl overflow-hidden"
+            >
               <div className="p-6">
-                <h3 className="font-semibold text-white mb-2">
-                  {locale === 'is' ? 'Þarftu aðstoð?' : 'Need help?'}
-                </h3>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-white">
+                    {locale === 'is' ? 'Þarftu aðstoð?' : 'Need help?'}
+                  </h3>
+                </div>
                 <p className="text-sm text-slate-400 mb-4">
                   {locale === 'is' 
-                    ? 'Við erum tilbúin að aðstoða þig.'
-                    : 'We\'re here to help you.'}
+                    ? 'Við erum tilbúin að aðstoða þig allan sólarhringinn.'
+                    : 'We\'re here to help you 24/7.'}
                 </p>
                 <a
                   href="tel:+3545555555"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 font-medium text-sm hover:bg-slate-100 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-slate-900 font-medium text-sm hover:bg-slate-100 transition-colors"
                 >
                   <Phone className="h-4 w-4" />
                   +354 555 5555
                 </a>
               </div>
-            </div>
+            </motion.div>
 
             {/* Book Again */}
             {!isActive && (
-              <Link
-                href={`/${locale}/booking`}
-                className="block w-full text-center px-6 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-500 transition-all"
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
               >
-                <RotateCcw className="h-4 w-4 inline mr-2" />
-                {locale === 'is' ? 'Bóka aftur' : 'Book again'}
-              </Link>
+                <Link
+                  href={`/${locale}/booking`}
+                  className="block w-full text-center px-6 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-500 transition-all shadow-lg shadow-primary-600/25 hover:shadow-xl hover:shadow-primary-600/30 hover:-translate-y-0.5"
+                >
+                  <RotateCcw className="h-4 w-4 inline mr-2" />
+                  {locale === 'is' ? 'Bóka aftur' : 'Book again'}
+                </Link>
+              </motion.div>
             )}
           </div>
         </div>
