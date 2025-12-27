@@ -32,7 +32,7 @@ import {
   Folder,
   type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatPrice } from '@/lib/utils';
 
 // Icon map matching backend CATEGORY_ICONS
 const ICON_MAP: Record<string, { icon: LucideIcon; bgColor: string; iconColor: string }> = {
@@ -497,7 +497,7 @@ export default function QuickBookingCard() {
                 </p>
               </div>
               <p className="text-4xl font-bold text-white mb-1">
-                {estimatedPrice.toLocaleString('is-IS')} <span className="text-xl font-medium text-primary-200">kr</span>
+                {estimatedPrice.toLocaleString('de-DE')} <span className="text-xl font-medium text-primary-200">kr</span>
               </p>
               <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur rounded-full px-3 py-1">
                 <Car className="h-3 w-3 text-primary-200" />
