@@ -112,8 +112,17 @@ export default function Header() {
           </nav>
 
           {/* Right side actions */}
-          <div className="flex items-center gap-3">
-            {/* Book & My Bookings */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Mobile Book Button */}
+            <Link
+              href={`/${locale}/booking`}
+              className="lg:hidden flex items-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 transition-all"
+            >
+              <Calendar className="h-4 w-4" />
+              <span className="hidden xs:inline">{locale === 'is' ? 'Bóka' : 'Book'}</span>
+            </Link>
+
+            {/* Book & My Bookings - Desktop */}
             <div className="hidden lg:flex items-center gap-2">
               {session && (
                 <Link
