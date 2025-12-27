@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { signIn, getSession, useSession } from 'next-auth/react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const callbackUrl = searchParams.get('callbackUrl') || '/';
   const error = searchParams.get('error');
   const { data: session, status } = useSession();
+  const hasRedirected = useRef(false);
 
   const [loginMode, setLoginMode] = useState<LoginMode>('customer');
   const [email, setEmail] = useState('');
@@ -25,21 +26,25 @@ export default function LoginPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Redirect if already logged in
+  // Redirect if already logged in (only once)
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
+    if (status === 'authenticated' && session?.user && !hasRedirected.current) {
+      hasRedirected.current = true;
       const role = session.user.role;
-      let redirectUrl = callbackUrl;
       
-      // If callbackUrl is just '/' or login page, redirect based on role
-      if (callbackUrl === '/' || callbackUrl.includes('/login')) {
-        if (role === 'ADMIN') {
-          redirectUrl = `/${locale}/admin/dashboard`;
-        } else if (role === 'OPERATOR') {
-          redirectUrl = `/${locale}/operator/dashboard`;
-        } else {
-          redirectUrl = `/${locale}`;
-        }
+      // Determine redirect URL based on role, ignore callbackUrl if it's a login page
+      let redirectUrl: string;
+      const isCallbackLoginPage = callbackUrl.includes('/login');
+      
+      if (role === 'ADMIN') {
+        redirectUrl = `/${locale}/admin/dashboard`;
+      } else if (role === 'OPERATOR') {
+        redirectUrl = `/${locale}/operator/dashboard`;
+      } else if (!isCallbackLoginPage && callbackUrl !== '/') {
+        // Use callbackUrl for customers if it's not a login page
+        redirectUrl = callbackUrl;
+      } else {
+        redirectUrl = `/${locale}`;
       }
       
       window.location.replace(redirectUrl);
@@ -80,7 +85,6 @@ export default function LoginPage() {
         email,
         pin,
         redirect: false,
-        callbackUrl,
       });
 
       if (result?.error) {
@@ -95,20 +99,23 @@ export default function LoginPage() {
         setErrorMessage(errorMap[result.error] || result.error);
         setIsLoading(false);
       } else if (result?.ok) {
-        // Wait a moment for the session cookie to be fully established
-        // Then fetch the session to determine the correct redirect
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait for the session cookie to be established
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         const session = await getSession();
-        let redirectUrl = callbackUrl;
+        let redirectUrl: string;
         
+        // Always redirect based on role for staff (ignore callbackUrl)
         if (session?.user?.role === 'ADMIN') {
           redirectUrl = `/${locale}/admin/dashboard`;
         } else if (session?.user?.role === 'OPERATOR') {
           redirectUrl = `/${locale}/operator/dashboard`;
+        } else {
+          redirectUrl = `/${locale}`;
         }
         
-        // Use router.replace for a clean navigation (no back to login)
+        // Mark as redirected to prevent useEffect from triggering another redirect
+        hasRedirected.current = true;
         window.location.replace(redirectUrl);
       }
     } catch (err) {
