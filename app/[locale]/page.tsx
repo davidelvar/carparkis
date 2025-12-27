@@ -479,7 +479,7 @@ export default function HomePage() {
       <TestimonialsSection />
 
       {/* FAQ Section - Accordion style */}
-      <section className="py-32 bg-white">
+      <section id="faq" className="py-32 bg-white scroll-mt-20">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 mb-6">

@@ -20,7 +20,8 @@ import {
   Sparkles,
   ArrowRight,
   HelpCircle,
-  Info
+  Info,
+  Tag
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/settings/context';
@@ -100,6 +101,13 @@ export default function Header() {
             >
               <HelpCircle className="h-4 w-4" />
               {locale === 'is' ? 'Spurningar' : 'FAQ'}
+            </Link>
+            <Link
+              href={`/${locale}/pricing`}
+              className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm transition-all"
+            >
+              <Tag className="h-4 w-4" />
+              {locale === 'is' ? 'Verðskrá' : 'Pricing'}
             </Link>
           </nav>
 
@@ -387,6 +395,17 @@ export default function Header() {
               {locale === 'is' ? 'Spurningar' : 'FAQ'}
             </Link>
 
+            <Link
+              href={`/${locale}/pricing`}
+              className="flex items-center gap-4 rounded-2xl bg-slate-50 px-5 py-4 text-base font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-200 text-slate-600">
+                <Tag className="h-5 w-5" />
+              </div>
+              {locale === 'is' ? 'Verðskrá' : 'Pricing'}
+            </Link>
+
             {(userRole === 'OPERATOR' || userRole === 'ADMIN') && (
               <>
                 <div className="h-px bg-slate-200 my-4" />
@@ -462,6 +481,16 @@ export default function Header() {
                   {t('login')}
                 </Link>
               )}
+              
+              {/* Language Switch - Mobile */}
+              <Link
+                href={`/${otherLocale}`}
+                className="flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-5 py-3 text-base font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Globe className="h-5 w-5" />
+                {otherLocale === 'is' ? 'Íslenska' : 'English'}
+              </Link>
             </div>
           </nav>
         </div>

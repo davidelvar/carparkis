@@ -119,15 +119,9 @@ export async function POST(request: NextRequest) {
     const session = await auth();
     let user;
     
-    if (session?.user?.id) {
-      // Use authenticated user and update their locale preference
-      user = await prisma.user.update({
-        where: { id: session.user.id },
-        data: { locale: data.locale },
-      });
-    }
-    
-    if (!user && data.guestEmail) {
+    // If guest info is provided, always use the guest/customer account
+    // This allows operators to create bookings for customers
+    if (data.guestEmail) {
       // Check if a user with this email already exists
       user = await prisma.user.findFirst({
         where: { email: data.guestEmail.toLowerCase() },
@@ -144,7 +138,7 @@ export async function POST(request: NextRequest) {
           },
         });
       } else {
-        // Create a new account for this guest
+        // Create a new account for this guest/customer
         user = await prisma.user.create({
           data: {
             email: data.guestEmail.toLowerCase(),
@@ -155,10 +149,16 @@ export async function POST(request: NextRequest) {
           },
         });
       }
+    } else if (session?.user?.id) {
+      // No guest email provided - use authenticated user (customer booking for themselves)
+      user = await prisma.user.update({
+        where: { id: session.user.id },
+        data: { locale: data.locale },
+      });
     }
     
     if (!user) {
-      // Final fallback: shared guest user (shouldn't happen if guestEmail is required)
+      // Final fallback: shared guest user (for walk-ins without email)
       user = await prisma.user.findFirst({
         where: { email: 'guest@carpark.is' },
       });
@@ -167,7 +167,8 @@ export async function POST(request: NextRequest) {
         user = await prisma.user.create({
           data: {
             email: 'guest@carpark.is',
-            name: 'Guest User',
+            name: data.guestName || 'Guest User',
+            phone: data.guestPhone,
             role: 'CUSTOMER',
             locale: data.locale,
           },

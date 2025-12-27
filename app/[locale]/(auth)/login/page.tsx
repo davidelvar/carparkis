@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { signIn, getSession, useSession } from 'next-auth/react';
 import { useTranslations, useLocale } from 'next-intl';
-import { useSearchParams } from 'next/navigation';
-import { Mail, Loader2, CheckCircle, AlertCircle, Car, Shield, ArrowLeft, Sparkles, Lock, Users } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Mail, Loader2, CheckCircle, AlertCircle, Car, Shield, Sparkles, Lock, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
@@ -13,11 +13,25 @@ type LoginMode = 'customer' | 'staff';
 export default function LoginPage() {
   const t = useTranslations();
   const locale = useLocale();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
   const error = searchParams.get('error');
   const { data: session, status } = useSession();
   const hasRedirected = useRef(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  // Timeout to show form if session check takes too long
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (status === 'loading') {
+        setShowForm(true);
+      }
+    }, 2000); // Show form after 2 seconds if still loading
+    
+    return () => clearTimeout(timer);
+  }, [status]);
 
   const [loginMode, setLoginMode] = useState<LoginMode>('customer');
   const [email, setEmail] = useState('');
@@ -45,8 +59,12 @@ export default function LoginPage() {
 
   // Redirect if already logged in (only once)
   useEffect(() => {
-    if (status === 'authenticated' && session?.user && !hasRedirected.current) {
+    console.log('Login page - status:', status, 'session:', !!session, 'hasRedirected:', hasRedirected.current, 'isRedirecting:', isRedirecting);
+    
+    if (status === 'authenticated' && session?.user && !hasRedirected.current && !isRedirecting) {
+      console.log('Starting redirect for authenticated user');
       hasRedirected.current = true;
+      setIsRedirecting(true);
       const role = session.user.role;
       
       // Determine redirect URL based on role, ignore callbackUrl if it's a login page
@@ -64,9 +82,11 @@ export default function LoginPage() {
         redirectUrl = `/${locale}`;
       }
       
-      window.location.replace(redirectUrl);
+      console.log('Redirecting to:', redirectUrl);
+      // Navigate away from login page
+      window.location.href = redirectUrl;
     }
-  }, [status, session, locale, callbackUrl]);
+  }, [status, session, locale, callbackUrl, isRedirecting]);
 
   const handleCustomerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +118,7 @@ export default function LoginPage() {
     setErrorMessage(null);
 
     try {
-      // Use redirect: false so we can handle role-based redirect ourselves
+      // First validate credentials without redirect to check role
       const result = await signIn('staff-pin', {
         email,
         pin,
@@ -115,24 +135,30 @@ export default function LoginPage() {
         return;
       }
 
-      // Successful login - fetch session to get role
+      // Credentials valid - fetch session to get role for redirect
       const session = await getSession();
       const role = session?.user?.role;
+      
+      // Determine redirect URL based on role
+      const targetUrl = role === 'ADMIN' 
+        ? `/${locale}/admin/dashboard`
+        : `/${locale}/operator/dashboard`;
 
-      // Redirect based on role
-      if (role === 'ADMIN') {
-        window.location.replace(`/${locale}/admin/dashboard`);
-      } else {
-        window.location.replace(`/${locale}/operator/dashboard`);
-      }
+      // Now redirect with NextAuth (which will be handled by proxy)
+      await signIn('staff-pin', {
+        email,
+        pin,
+        redirect: true,
+        callbackUrl: targetUrl,
+      });
     } catch (err) {
       setErrorMessage(locale === 'is' ? 'Óvænt villa kom upp' : 'An unexpected error occurred');
       setIsLoading(false);
     }
   };
 
-  // Show loading while checking auth status
-  if (status === 'loading' || status === 'authenticated') {
+  // Show loading while checking auth status or redirecting (but not indefinitely)
+  if ((status === 'loading' && !showForm) || status === 'authenticated' || isRedirecting) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
@@ -198,25 +224,16 @@ export default function LoginPage() {
           className="w-full max-w-md my-auto"
         >
           {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-4 sm:mb-6">
+          <div className="lg:hidden text-center mb-3 sm:mb-5">
             <Link href={`/${locale}`} className="inline-flex items-center gap-2 text-xl sm:text-2xl font-bold text-primary-600">
-              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-primary-100">
-                <Car className="h-5 w-5" />
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-primary-100">
+                <Car className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               CarPark
             </Link>
           </div>
 
-          {/* Back link */}
-          <Link 
-            href={`/${locale}`}
-            className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors mb-4 sm:mb-6"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {t('common.back')}
-          </Link>
-
-          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-5 sm:p-6 lg:p-8">
+          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-4 sm:p-6 lg:p-8">
             {isSuccess ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -245,11 +262,11 @@ export default function LoginPage() {
             ) : (
               <>
                 {/* Login Mode Toggle */}
-                <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
+                <div className="flex rounded-xl bg-slate-100 p-1 mb-4 sm:mb-6">
                   <button
                     type="button"
                     onClick={() => { setLoginMode('customer'); setErrorMessage(null); }}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-sm font-medium transition-all ${
                       loginMode === 'customer'
                         ? 'bg-white text-slate-900 shadow-sm'
                         : 'text-slate-500 hover:text-slate-700'
@@ -261,7 +278,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => { setLoginMode('staff'); setErrorMessage(null); }}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-sm font-medium transition-all ${
                       loginMode === 'staff'
                         ? 'bg-white text-slate-900 shadow-sm'
                         : 'text-slate-500 hover:text-slate-700'
@@ -393,12 +410,28 @@ export default function LoginPage() {
                             PIN
                           </label>
                           
-                          {/* PIN Display */}
-                          <div className="flex justify-center gap-2 mb-3 sm:mb-4">
+                          {/* Hidden input for keyboard entry */}
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
+                            value={pin}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              setPin(val);
+                            }}
+                            className="sr-only"
+                            id="pin-input"
+                            autoComplete="one-time-code"
+                          />
+                          
+                          {/* PIN Display - clickable to focus hidden input */}
+                          <label htmlFor="pin-input" className="flex justify-center gap-2 mb-2 sm:mb-3 cursor-text">
                             {[0, 1, 2, 3].map((i) => (
                               <div
                                 key={i}
-                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 flex items-center justify-center text-xl sm:text-2xl font-bold transition-all ${
+                                className={`w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl border-2 flex items-center justify-center text-lg sm:text-xl font-bold transition-all ${
                                   pin.length > i
                                     ? 'border-slate-800 bg-slate-800 text-white'
                                     : 'border-slate-200 bg-slate-50 text-slate-300'
@@ -407,17 +440,17 @@ export default function LoginPage() {
                                 {pin.length > i ? '•' : ''}
                               </div>
                             ))}
-                          </div>
+                          </label>
 
                           {/* Keypad */}
-                          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                          <div className="grid grid-cols-3 gap-1 sm:gap-2">
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                               <button
                                 key={num}
                                 type="button"
                                 onClick={() => pin.length < 4 && setPin(pin + num)}
                                 disabled={isLoading || pin.length >= 4}
-                                className="h-11 sm:h-12 rounded-xl bg-slate-100 text-slate-900 text-lg sm:text-xl font-semibold hover:bg-slate-200 active:bg-slate-300 active:scale-95 transition-all disabled:opacity-50"
+                                className="h-10 sm:h-12 rounded-lg sm:rounded-xl bg-slate-100 text-slate-900 text-base sm:text-xl font-semibold hover:bg-slate-200 active:bg-slate-300 active:scale-95 transition-all disabled:opacity-50"
                               >
                                 {num}
                               </button>
@@ -426,7 +459,7 @@ export default function LoginPage() {
                               type="button"
                               onClick={() => setPin('')}
                               disabled={isLoading}
-                              className="h-11 sm:h-12 rounded-xl bg-red-50 text-red-600 text-xs sm:text-sm font-medium hover:bg-red-100 active:bg-red-200 active:scale-95 transition-all"
+                              className="h-10 sm:h-12 rounded-lg sm:rounded-xl bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 active:bg-red-200 active:scale-95 transition-all"
                             >
                               {locale === 'is' ? 'Hreinsa' : 'Clear'}
                             </button>
@@ -434,7 +467,7 @@ export default function LoginPage() {
                               type="button"
                               onClick={() => pin.length < 4 && setPin(pin + '0')}
                               disabled={isLoading || pin.length >= 4}
-                              className="h-11 sm:h-12 rounded-xl bg-slate-100 text-slate-900 text-lg sm:text-xl font-semibold hover:bg-slate-200 active:bg-slate-300 active:scale-95 transition-all disabled:opacity-50"
+                              className="h-10 sm:h-12 rounded-lg sm:rounded-xl bg-slate-100 text-slate-900 text-base sm:text-xl font-semibold hover:bg-slate-200 active:bg-slate-300 active:scale-95 transition-all disabled:opacity-50"
                             >
                               0
                             </button>
@@ -442,9 +475,9 @@ export default function LoginPage() {
                               type="button"
                               onClick={() => setPin(pin.slice(0, -1))}
                               disabled={isLoading || pin.length === 0}
-                              className="h-11 sm:h-12 rounded-xl bg-slate-100 text-slate-600 text-xs sm:text-sm font-medium hover:bg-slate-200 active:bg-slate-300 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center"
+                              className="h-10 sm:h-12 rounded-lg sm:rounded-xl bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 active:bg-slate-300 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center"
                             >
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z" />
                               </svg>
                             </button>
@@ -454,7 +487,7 @@ export default function LoginPage() {
                         <button
                           type="submit"
                           disabled={isLoading || !email || pin.length !== 4}
-                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-800 px-6 py-3 sm:py-3.5 text-sm sm:text-base font-semibold text-white shadow-lg shadow-slate-800/25 transition-all hover:bg-slate-700 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed mt-4 sm:mt-6"
+                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-800 px-6 py-2.5 sm:py-3.5 text-sm sm:text-base font-semibold text-white shadow-lg shadow-slate-800/25 transition-all hover:bg-slate-700 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed mt-3 sm:mt-5"
                         >
                           {isLoading ? (
                             <>
@@ -470,8 +503,8 @@ export default function LoginPage() {
                         </button>
                       </form>
 
-                      <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-slate-100 text-center">
-                        <p className="text-xs sm:text-sm text-slate-500">
+                      <div className="mt-3 sm:mt-5 pt-3 sm:pt-5 border-t border-slate-100 text-center">
+                        <p className="text-xs text-slate-500">
                           {locale === 'is' 
                             ? 'PIN fæst hjá stjórnanda' 
                             : 'Contact admin for your PIN'}

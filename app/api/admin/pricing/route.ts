@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { lotId, vehicleTypeId, pricePerDay, weeklyDiscount, monthlyDiscount, isActive = true } = body;
+    const { lotId, vehicleTypeId, baseFee = 0, pricePerDay, weeklyDiscount, monthlyDiscount, isActive = true } = body;
 
     // Get default lot if not provided
     let effectiveLotId = lotId;
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       data: {
         lotId: effectiveLotId,
         vehicleTypeId,
+        baseFee,
         pricePerDay,
         weeklyDiscount,
         monthlyDiscount,

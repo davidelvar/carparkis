@@ -246,14 +246,14 @@ export default function QuickBookingCard() {
   }>>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-  // Fetch active service categories
+  // Fetch active service categories (uses cached endpoint)
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/admin/services');
+        const response = await fetch('/api/services/categories');
         const result = await response.json();
-        if (result.success && result.categories) {
-          setCategories(result.categories.filter((c: any) => c.isActive));
+        if (result.success && result.data) {
+          setCategories(result.data);
         }
       } catch (err) {
         console.error('Failed to fetch categories:', err);

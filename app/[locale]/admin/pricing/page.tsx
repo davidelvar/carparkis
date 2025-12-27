@@ -36,6 +36,7 @@ interface LotPricing {
   vehicleType: VehicleType;
   lotId: string;
   lot: Lot;
+  baseFee: number;
   pricePerDay: number;
   weeklyDiscount?: number | null;
   monthlyDiscount?: number | null;
@@ -59,6 +60,7 @@ export default function AdminPricingPage() {
   const [formData, setFormData] = useState({
     vehicleTypeId: '',
     lotId: '',
+    baseFee: 7000,
     pricePerDay: 2000,
     weeklyDiscount: 0,
     monthlyDiscount: 0,
@@ -121,6 +123,7 @@ export default function AdminPricingPage() {
     setFormData({
       vehicleTypeId: vehicleTypes[0]?.id || '',
       lotId: lots[0]?.id || '',
+      baseFee: 7000,
       pricePerDay: 2000,
       weeklyDiscount: 0,
       monthlyDiscount: 0,
@@ -134,6 +137,7 @@ export default function AdminPricingPage() {
     setFormData({
       vehicleTypeId: price.vehicleTypeId,
       lotId: price.lotId,
+      baseFee: price.baseFee || 0,
       pricePerDay: price.pricePerDay,
       weeklyDiscount: price.weeklyDiscount || 0,
       monthlyDiscount: price.monthlyDiscount || 0,
@@ -305,6 +309,9 @@ export default function AdminPricingPage() {
                     <th className="hidden sm:table-cell text-left text-xs font-semibold text-slate-600 uppercase tracking-wider px-4 py-3">
                       {locale === 'is' ? 'Stæðagarður' : 'Lot'}
                     </th>
+                    <th className="hidden lg:table-cell text-right text-xs font-semibold text-slate-600 uppercase tracking-wider px-4 py-3">
+                      {locale === 'is' ? 'Grunn' : 'Base'}
+                    </th>
                     <th className="text-right text-xs font-semibold text-slate-600 uppercase tracking-wider px-4 py-3">
                       {locale === 'is' ? 'Dagverð' : 'Daily'}
                     </th>
@@ -347,6 +354,11 @@ export default function AdminPricingPage() {
                           <MapPin className="h-3.5 w-3.5" />
                           {locale === 'is' ? tier.lot.name : tier.lot.nameEn}
                         </div>
+                      </td>
+                      <td className="hidden lg:table-cell px-4 py-4 text-right">
+                        <span className="text-sm text-slate-600">
+                          {formatPrice(tier.baseFee || 0, locale)}
+                        </span>
                       </td>
                       <td className="px-4 py-4 text-right">
                         <span className="font-semibold text-primary-600">
@@ -477,6 +489,24 @@ export default function AdminPricingPage() {
               </div>
 
               <div>
+                <label className="label">{locale === 'is' ? 'Grunngjald (ISK)' : 'Base Fee (ISK)'}</label>
+                <p className="text-xs text-slate-500 mb-1.5">
+                  {locale === 'is' ? 'Fast gjald sem bætist við hverja bókun' : 'Fixed fee added to each booking'}
+                </p>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="number"
+                    value={formData.baseFee}
+                    onChange={(e) => setFormData({ ...formData, baseFee: parseInt(e.target.value) || 0 })}
+                    className="input pl-10"
+                    min={0}
+                    step={500}
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label className="label">{locale === 'is' ? 'Verð á dag (ISK)' : 'Price per Day (ISK)'}</label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -558,14 +588,18 @@ export default function AdminPricingPage() {
                   {locale === 'is' ? 'Forskoðun' : 'Preview'}
                 </p>
                 <div className="space-y-2">
+                  <div className="flex justify-between border-b border-slate-200 pb-2 mb-2">
+                    <span className="text-sm text-slate-600">{locale === 'is' ? 'Grunngjald' : 'Base fee'}</span>
+                    <span className="font-semibold text-primary-600">{formatPrice(formData.baseFee, locale)}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-slate-600">{locale === 'is' ? '1 dagur' : '1 day'}</span>
-                    <span className="font-semibold text-slate-900">{formatPrice(formData.pricePerDay, locale)}</span>
+                    <span className="font-semibold text-slate-900">{formatPrice(formData.baseFee + formData.pricePerDay, locale)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-slate-600">{locale === 'is' ? '7 dagar' : '7 days'}</span>
                     <span className="font-semibold text-slate-900">
-                      {formatPrice(Math.round(formData.pricePerDay * 7 * (1 - (formData.weeklyDiscount || 0) / 100)), locale)}
+                      {formatPrice(formData.baseFee + Math.round(formData.pricePerDay * 7 * (1 - (formData.weeklyDiscount || 0) / 100)), locale)}
                       {formData.weeklyDiscount ? (
                         <span className="text-green-600 text-xs ml-1">(-{formData.weeklyDiscount}%)</span>
                       ) : null}
@@ -574,7 +608,7 @@ export default function AdminPricingPage() {
                   <div className="flex justify-between">
                     <span className="text-sm text-slate-600">{locale === 'is' ? '30 dagar' : '30 days'}</span>
                     <span className="font-semibold text-slate-900">
-                      {formatPrice(Math.round(formData.pricePerDay * 30 * (1 - (formData.monthlyDiscount || 0) / 100)), locale)}
+                      {formatPrice(formData.baseFee + Math.round(formData.pricePerDay * 30 * (1 - (formData.monthlyDiscount || 0) / 100)), locale)}
                       {formData.monthlyDiscount ? (
                         <span className="text-blue-600 text-xs ml-1">(-{formData.monthlyDiscount}%)</span>
                       ) : null}

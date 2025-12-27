@@ -33,6 +33,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { formatPrice, cn } from '@/lib/utils';
+import { useSiteSettings } from '@/lib/settings/context';
 
 interface Booking {
   id: string;
@@ -157,12 +158,17 @@ export default function BookingDetailPage() {
   const locale = useLocale();
   const params = useParams();
   const id = params.id as string;
+  const { settings } = useSiteSettings();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -194,6 +200,96 @@ export default function BookingDetailPage() {
       navigator.clipboard.writeText(booking.reference);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleDownloadReceipt = () => {
+    if (booking) {
+      // Open receipt in new window for printing/saving as PDF
+      window.open(`/api/bookings/${booking.id}/receipt?locale=${locale}`, '_blank');
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!booking) return;
+    
+    setIsSendingEmail(true);
+    setActionMessage(null);
+    
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}/send-confirmation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setActionMessage({
+          type: 'success',
+          text: locale === 'is' 
+            ? 'Staðfesting send í tölvupóst!' 
+            : 'Confirmation email sent!'
+        });
+      } else {
+        setActionMessage({
+          type: 'error',
+          text: result.error || (locale === 'is' ? 'Villa við að senda tölvupóst' : 'Failed to send email')
+        });
+      }
+    } catch {
+      setActionMessage({
+        type: 'error',
+        text: locale === 'is' ? 'Villa við að senda tölvupóst' : 'Failed to send email'
+      });
+    } finally {
+      setIsSendingEmail(false);
+      // Clear message after 5 seconds
+      setTimeout(() => setActionMessage(null), 5000);
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!booking) return;
+    
+    setIsCancelling(true);
+    setActionMessage(null);
+    
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setActionMessage({
+          type: 'success',
+          text: locale === 'is' 
+            ? 'Bókun hefur verið afturkölluð' 
+            : 'Booking has been cancelled'
+        });
+        // Refresh booking to show updated status
+        fetchBooking(true);
+      } else {
+        setActionMessage({
+          type: 'error',
+          text: result.error || (locale === 'is' ? 'Villa við að afturkalla bókun' : 'Failed to cancel booking')
+        });
+      }
+    } catch {
+      setActionMessage({
+        type: 'error',
+        text: locale === 'is' ? 'Villa við að afturkalla bókun' : 'Failed to cancel booking'
+      });
+    } finally {
+      setIsCancelling(false);
+      setShowCancelDialog(false);
+      // Clear message after 5 seconds
+      setTimeout(() => setActionMessage(null), 5000);
     }
   };
 
@@ -413,19 +509,6 @@ export default function BookingDetailPage() {
                     </div>
                   </div>
                 </div>
-                {booking.spotNumber && (
-                  <div className="mt-4 p-3 rounded-xl bg-primary-50 border border-primary-100">
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-5 w-5 text-primary-600" />
-                      <div>
-                        <p className="text-xs text-primary-600 font-medium">
-                          {locale === 'is' ? 'Bílastæði númer' : 'Parking Spot'}
-                        </p>
-                        <p className="font-bold text-primary-900 text-lg">{booking.spotNumber}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </motion.div>
 
@@ -559,31 +642,36 @@ export default function BookingDetailPage() {
                   <MapPin className="h-4 w-4" />
                   {locale === 'is' ? 'Staðsetning' : 'Location'}
                 </h2>
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-6 w-6 text-slate-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-900 text-lg">
-                      {locale === 'is' ? booking.lot.name : (booking.lot.nameEn || booking.lot.name)}
-                    </p>
-                    {booking.lot.address && (
-                      <p className="text-slate-600">{booking.lot.address}</p>
-                    )}
-                    {booking.lot.address && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.lot.address)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 mt-3 text-sm text-primary-600 font-medium hover:text-primary-500 transition-colors"
-                      >
-                        <Navigation className="h-4 w-4" />
-                        {locale === 'is' ? 'Opna í kortum' : 'Open in Maps'}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
+                {(() => {
+                  const displayAddress = settings.address || booking.lot.address || '';
+                  return (
+                    <div className="flex items-start gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                        <MapPin className="h-6 w-6 text-slate-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900 text-lg">
+                          {locale === 'is' ? settings.siteName : settings.siteNameEn}
+                        </p>
+                        {displayAddress && (
+                          <p className="text-slate-600">{displayAddress}</p>
+                        )}
+                        {displayAddress && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayAddress)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 mt-3 text-sm text-primary-600 font-medium hover:text-primary-500 transition-colors"
+                          >
+                            <Navigation className="h-4 w-4" />
+                            {locale === 'is' ? 'Opna í kortum' : 'Open in Maps'}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {booking.lot.instructions && (
                   <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-100">
@@ -627,7 +715,7 @@ export default function BookingDetailPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden sticky top-24 shadow-sm"
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm"
             >
               <div className="p-6">
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
@@ -668,16 +756,53 @@ export default function BookingDetailPage() {
 
               {/* Actions */}
               <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-2">
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
+                {/* Action Message */}
+                {actionMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={cn(
+                      'p-3 rounded-lg text-sm font-medium flex items-center gap-2',
+                      actionMessage.type === 'success' 
+                        ? 'bg-green-50 text-green-700 border border-green-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    )}
+                  >
+                    {actionMessage.type === 'success' ? (
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    )}
+                    {actionMessage.text}
+                  </motion.div>
+                )}
+
+                <button 
+                  onClick={handleDownloadReceipt}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 hover:border-slate-300 transition-all"
+                >
                   <Download className="h-4 w-4" />
                   {locale === 'is' ? 'Sækja kvittun' : 'Download receipt'}
                 </button>
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
-                  <Mail className="h-4 w-4" />
-                  {locale === 'is' ? 'Senda í tölvupóst' : 'Email confirmation'}
+                <button 
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSendingEmail ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  {isSendingEmail 
+                    ? (locale === 'is' ? 'Sendi...' : 'Sending...') 
+                    : (locale === 'is' ? 'Senda í tölvupóst' : 'Email confirmation')}
                 </button>
                 {isActive && (
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 font-medium text-sm hover:bg-red-50 hover:border-red-300 transition-all">
+                  <button 
+                    onClick={() => setShowCancelDialog(true)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 font-medium text-sm hover:bg-red-50 hover:border-red-300 transition-all"
+                  >
                     <XCircle className="h-4 w-4" />
                     {locale === 'is' ? 'Afturkalla bókun' : 'Cancel booking'}
                   </button>
@@ -707,11 +832,11 @@ export default function BookingDetailPage() {
                     : 'We\'re here to help you 24/7.'}
                 </p>
                 <a
-                  href="tel:+3545555555"
+                  href={`tel:${settings.contactPhone}`}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-slate-900 font-medium text-sm hover:bg-slate-100 transition-colors"
                 >
                   <Phone className="h-4 w-4" />
-                  +354 555 5555
+                  {settings.contactPhone}
                 </a>
               </div>
             </motion.div>
@@ -735,6 +860,71 @@ export default function BookingDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      {showCancelDialog && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => !isCancelling && setShowCancelDialog(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-6">
+              <div className="h-16 w-16 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">
+                {locale === 'is' ? 'Afturkalla bókun?' : 'Cancel booking?'}
+              </h3>
+              <p className="mt-2 text-slate-600">
+                {locale === 'is' 
+                  ? 'Ertu viss um að þú viljir afturkalla þessa bókun? Ekki er hægt að afturkalla þessa aðgerð.'
+                  : 'Are you sure you want to cancel this booking? This action cannot be undone.'}
+              </p>
+            </div>
+            
+            <div className="bg-slate-50 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600">{locale === 'is' ? 'Bókunarnúmer' : 'Reference'}</span>
+                <span className="font-mono font-bold text-slate-900">{booking.reference}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelDialog(false)}
+                disabled={isCancelling}
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                {locale === 'is' ? 'Hætta við' : 'Go back'}
+              </button>
+              <button
+                onClick={handleCancelBooking}
+                disabled={isCancelling}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isCancelling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {locale === 'is' ? 'Afturkalla...' : 'Cancelling...'}
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4" />
+                    {locale === 'is' ? 'Afturkalla' : 'Cancel booking'}
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }

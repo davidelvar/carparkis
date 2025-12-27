@@ -25,6 +25,11 @@ const operatorPatterns = [
   /^\/operator/,
 ];
 
+const loginPatterns = [
+  /^\/[a-z]{2}\/login/,
+  /^\/login/,
+];
+
 export default async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -37,23 +42,50 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Get token for auth checks
+  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+  
+  // In production (HTTPS), NextAuth v5 uses __Secure- prefix for cookies
+  const isSecure = request.url.startsWith('https');
+  const cookieName = isSecure ? '__Secure-authjs.session-token' : 'authjs.session-token';
+  
+  const token = await getToken({ 
+    req: request,
+    secret,
+    cookieName,
+  });
+
+  // Check if this is a login page - redirect authenticated users away
+  const isLoginPage = loginPatterns.some((pattern) => pattern.test(pathname));
+  
+  if (isLoginPage && token) {
+    const locale = pathname.match(/^\/([a-z]{2})\//)?.[1] || defaultLocale;
+    const userRole = token.role as string | undefined;
+    
+    // Check for callbackUrl in query params
+    const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
+    
+    // Determine redirect URL based on role
+    let redirectUrl: string;
+    if (callbackUrl && !callbackUrl.includes('/login')) {
+      redirectUrl = callbackUrl;
+    } else if (userRole === 'ADMIN') {
+      redirectUrl = `/${locale}/admin/dashboard`;
+    } else if (userRole === 'OPERATOR') {
+      redirectUrl = `/${locale}/operator/dashboard`;
+    } else {
+      redirectUrl = `/${locale}`;
+    }
+    
+    return NextResponse.redirect(new URL(redirectUrl, request.url));
+  }
+
   // Check if route is protected
   const isProtected = protectedPatterns.some((pattern) => pattern.test(pathname));
   const isAdminRoute = adminPatterns.some((pattern) => pattern.test(pathname));
   const isOperatorRoute = operatorPatterns.some((pattern) => pattern.test(pathname));
 
   if (isProtected) {
-    // Use JWT token check instead of session (Edge compatible)
-    const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
-    
-    // In production (HTTPS), NextAuth v5 uses __Secure- prefix for cookies
-    // We must explicitly specify this for getToken() to find it
-    const token = await getToken({ 
-      req: request,
-      secret,
-      cookieName: '__Secure-authjs.session-token',
-    });
-
     if (!token) {
       // Redirect to login with callback URL
       const locale = pathname.match(/^\/([a-z]{2})\//)?.[1] || defaultLocale;

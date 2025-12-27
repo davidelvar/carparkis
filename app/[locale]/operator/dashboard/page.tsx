@@ -37,11 +37,15 @@ import {
   CarFront,
   Settings,
   LogOut,
+  Globe,
+  Plus,
 } from 'lucide-react';
 import { cn, formatTime, formatPrice } from '@/lib/utils';
 import type { BookingWithRelations } from '@/types';
 import { AddonStatus } from '@prisma/client';
 import Logo from '@/components/ui/Logo';
+import { useRouter, usePathname } from 'next/navigation';
+import ManualBookingModal from '@/components/operator/ManualBookingModal';
 
 interface DashboardStats {
   todayArrivals: number;
@@ -71,8 +75,24 @@ const ADDON_STATUS_CONFIG: Record<string, { label: { is: string; en: string }; c
   SKIPPED: { label: { is: 'Sleppt', en: 'Skipped' }, color: 'text-slate-500', bg: 'bg-slate-100' },
 };
 
+// Flight status type from API
+interface FlightStatusData {
+  flightNumber: string;
+  scheduledTime: string;
+  estimatedTime?: string;
+  actualTime?: string;
+  status: string;
+  destination?: string;
+  airline?: string;
+  isDelayed: boolean;
+  delayMinutes?: number;
+  fetchedAt: string;
+}
+
 export default function OperatorDashboard() {
   const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [stats, setStats] = useState<DashboardStats>({
     todayArrivals: 0,
@@ -90,6 +110,8 @@ export default function OperatorDashboard() {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showManualBookingModal, setShowManualBookingModal] = useState(false);
+  const [flightStatuses, setFlightStatuses] = useState<Record<string, FlightStatusData>>({});
   const settingsMenuRef = useRef<HTMLDivElement>(null);
 
   // Initialize time on client-side only to prevent hydration mismatch
@@ -113,6 +135,70 @@ export default function OperatorDashboard() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Fetch flight statuses for today's bookings
+  const fetchFlightStatuses = async (allBookings: BookingWithRelations[], today: string) => {
+    const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Collect departure flight numbers for today's arrivals (drop-offs)
+    const departureFlights = allBookings
+      .filter(b => {
+        const dropOff = new Date(b.dropOffTime);
+        return dropOff.toDateString() === today && b.departureFlightNumber;
+      })
+      .map(b => b.departureFlightNumber!)
+      .filter((v, i, a) => a.indexOf(v) === i); // unique
+
+    // Collect arrival flight numbers for today's departures (pick-ups)
+    const arrivalFlights = allBookings
+      .filter(b => {
+        const pickUp = new Date(b.pickUpTime);
+        return pickUp.toDateString() === today && b.arrivalFlightNumber;
+      })
+      .map(b => b.arrivalFlightNumber!)
+      .filter((v, i, a) => a.indexOf(v) === i); // unique
+
+    const newStatuses: Record<string, FlightStatusData> = {};
+
+    // Fetch departure flight statuses
+    if (departureFlights.length > 0) {
+      try {
+        const res = await fetch(
+          `/api/flights/status?date=${todayDate}&type=departures&flights=${departureFlights.join(',')}`
+        );
+        const data = await res.json();
+        if (data.success && data.data.statuses) {
+          Object.assign(newStatuses, data.data.statuses);
+        }
+      } catch (error) {
+        console.error('Failed to fetch departure flight statuses:', error);
+      }
+    }
+
+    // Fetch arrival flight statuses
+    if (arrivalFlights.length > 0) {
+      try {
+        const res = await fetch(
+          `/api/flights/status?date=${todayDate}&type=arrivals&flights=${arrivalFlights.join(',')}`
+        );
+        const data = await res.json();
+        if (data.success && data.data.statuses) {
+          Object.assign(newStatuses, data.data.statuses);
+        }
+      } catch (error) {
+        console.error('Failed to fetch arrival flight statuses:', error);
+      }
+    }
+
+    setFlightStatuses(newStatuses);
+  };
+
+  // Switch language
+  const otherLocale = locale === 'is' ? 'en' : 'is';
+  const switchLanguage = () => {
+    const newPath = pathname.replace(`/${locale}`, `/${otherLocale}`);
+    router.push(newPath);
+  };
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -156,6 +242,9 @@ export default function OperatorDashboard() {
           pendingServices,
           upcomingBookings: upcoming.length,
         });
+
+        // Fetch flight statuses for today's arrivals and departures
+        fetchFlightStatuses(result.data, today);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -313,6 +402,16 @@ export default function OperatorDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Manual Booking Button */}
+              <button
+                onClick={() => setShowManualBookingModal(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#255da0] text-white hover:bg-[#1e4d85] transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline text-sm font-medium">
+                  {locale === 'is' ? 'Ný bókun' : 'New Booking'}
+                </span>
+              </button>
               <button
                 onClick={fetchData}
                 disabled={isLoading}
@@ -321,6 +420,17 @@ export default function OperatorDashboard() {
                 <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
                 <span className="hidden sm:inline text-sm font-medium">
                   {locale === 'is' ? 'Uppfæra' : 'Refresh'}
+                </span>
+              </button>
+              {/* Language Switch */}
+              <button 
+                onClick={switchLanguage}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                title={locale === 'is' ? 'Switch to English' : 'Skipta yfir í íslensku'}
+              >
+                <Globe className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {locale === 'is' ? 'English' : 'Íslenska'}
                 </span>
               </button>
               <div className="relative" ref={settingsMenuRef}>
@@ -362,8 +472,71 @@ export default function OperatorDashboard() {
       <main className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Tab Navigation */}
-          <div className="bg-white rounded-xl border border-slate-200 p-2">
-            <div className="flex overflow-x-auto gap-2 scrollbar-hide">
+          <div className="bg-white rounded-xl border border-slate-200 p-1.5 sm:p-2">
+            {/* Mobile: Grid layout (2 columns + full width for last item if odd) */}
+            <div className="grid grid-cols-2 gap-1.5 sm:hidden">
+              {tabs.map((tab, index) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl font-semibold transition-all relative',
+                    // Make last item span full width if odd number of tabs
+                    index === tabs.length - 1 && tabs.length % 2 === 1 && 'col-span-2',
+                    activeTab === tab.id
+                      ? tab.color.active
+                      : 'text-slate-600 hover:bg-slate-100'
+                  )}
+                >
+                  <div className="relative">
+                    <tab.icon className="h-5 w-5" />
+                    {tab.count > 0 && (
+                      <span className={cn(
+                        'absolute -top-1.5 -right-2.5 px-1.5 py-0.5 rounded-full text-xs font-bold min-w-[1.25rem] text-center',
+                        activeTab === tab.id 
+                          ? 'bg-white/30 text-white' 
+                          : tab.color.badge
+                      )}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs leading-tight text-center">
+                    {tab.label[locale === 'is' ? 'is' : 'en']}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {/* Tablet: Scrollable row with compact styling */}
+            <div className="hidden sm:flex md:hidden overflow-x-auto gap-1.5 scrollbar-hide">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2.5 rounded-xl font-semibold text-sm whitespace-nowrap transition-all',
+                    activeTab === tab.id
+                      ? tab.color.active
+                      : 'text-slate-600 hover:bg-slate-100'
+                  )}
+                >
+                  <tab.icon className="h-4 w-4" />
+                  <span>{tab.label[locale === 'is' ? 'is' : 'en']}</span>
+                  {tab.count > 0 && (
+                    <span className={cn(
+                      'px-2 py-0.5 rounded-full text-xs font-bold min-w-[1.5rem] text-center',
+                      activeTab === tab.id 
+                        ? 'bg-white/25 text-white' 
+                        : tab.color.badge
+                    )}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {/* Desktop: Full row */}
+            <div className="hidden md:flex gap-2">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -448,6 +621,11 @@ export default function OperatorDashboard() {
                       locale={locale}
                       activeTab={activeTab}
                       actionLoading={actionLoading}
+                      flightStatus={
+                        activeTab === 'arrivals' 
+                          ? flightStatuses[booking.departureFlightNumber || '']
+                          : flightStatuses[booking.arrivalFlightNumber || '']
+                      }
                       onStatusUpdate={updateBookingStatus}
                       onSelect={() => setSelectedBooking(booking)}
                     />
@@ -470,6 +648,16 @@ export default function OperatorDashboard() {
           onAddonUpdate={updateAddonStatus}
         />
       )}
+
+      {/* Manual Booking Modal */}
+      <ManualBookingModal
+        isOpen={showManualBookingModal}
+        onClose={() => setShowManualBookingModal(false)}
+        onSuccess={() => {
+          fetchData();
+          setShowManualBookingModal(false);
+        }}
+      />
     </div>
   );
 }
@@ -480,6 +668,7 @@ function BookingCard({
   locale,
   activeTab,
   actionLoading,
+  flightStatus,
   onStatusUpdate,
   onSelect,
 }: {
@@ -487,6 +676,7 @@ function BookingCard({
   locale: string;
   activeTab: TabType;
   actionLoading: string | null;
+  flightStatus?: FlightStatusData;
   onStatusUpdate: (id: string, status: string) => void;
   onSelect: () => void;
 }) {
@@ -558,13 +748,31 @@ function BookingCard({
           </div>
 
           {/* Flight */}
-          <div className="hidden md:flex items-center gap-3 w-28 flex-shrink-0">
+          <div className="hidden md:flex items-center gap-3 w-36 flex-shrink-0">
             {timeInfo.flight ? (
               <>
-                <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <timeInfo.icon className="h-5 w-5 text-blue-600" />
+                <div className={cn(
+                  "flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center",
+                  flightStatus?.isDelayed ? "bg-amber-100" : "bg-blue-50"
+                )}>
+                  <timeInfo.icon className={cn(
+                    "h-5 w-5",
+                    flightStatus?.isDelayed ? "text-amber-600" : "text-blue-600"
+                  )} />
                 </div>
-                <p className="font-medium text-slate-700">{timeInfo.flight}</p>
+                <div className="min-w-0">
+                  <p className={cn(
+                    "font-medium",
+                    flightStatus?.isDelayed ? "text-amber-700" : "text-slate-700"
+                  )}>{timeInfo.flight}</p>
+                  {flightStatus?.isDelayed && flightStatus.delayMinutes ? (
+                    <p className="text-xs text-amber-600 font-medium">
+                      +{flightStatus.delayMinutes} {locale === 'is' ? 'mín' : 'min'}
+                    </p>
+                  ) : flightStatus?.status && flightStatus.status !== 'On time' ? (
+                    <p className="text-xs text-slate-500 truncate">{flightStatus.status}</p>
+                  ) : null}
+                </div>
               </>
             ) : (
               <span className="text-slate-400 text-sm">—</span>
@@ -573,6 +781,13 @@ function BookingCard({
 
           {/* Status & Indicators */}
           <div className="hidden lg:flex items-center gap-2 flex-1">
+            {/* Flight delay badge */}
+            {flightStatus?.isDelayed && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                <AlertTriangle className="h-3 w-3" />
+                {locale === 'is' ? 'Seinkað' : 'Delayed'}
+              </span>
+            )}
             <span className={cn(
               'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold',
               statusConfig?.bg,

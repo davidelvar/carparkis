@@ -651,3 +651,138 @@ export async function sendTestCheckInConfirmation(to: string, userName: string, 
   const sampleBooking = createSampleBookingData(to, userName);
   return sendCheckInConfirmation({ booking: sampleBooking, locale });
 }
+
+/**
+ * Send booking cancellation email
+ */
+export async function sendBookingCancellation(data: BookingEmailData): Promise<boolean> {
+  const transporter = createTransporter();
+  const config = getEmailConfig();
+  
+  if (!transporter || !config) {
+    console.warn('[Email] Cannot send cancellation - SMTP not configured');
+    return false;
+  }
+
+  const { booking, locale } = data;
+  const isIcelandic = locale === 'is';
+
+  const subject = isIcelandic
+    ? `Bókun afturkölluð - ${booking.reference}`
+    : `Booking Cancelled - ${booking.reference}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 32px;">
+      <h1 style="color: #1aa7b3; font-size: 28px; margin: 0;">CarPark</h1>
+      <p style="color: #64748b; margin-top: 8px;">Keflavík International Airport</p>
+    </div>
+
+    <!-- Main Card -->
+    <div style="background: white; border-radius: 16px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <!-- Cancel Icon -->
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="width: 64px; height: 64px; background: #fee2e2; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+        </div>
+      </div>
+
+      <h2 style="color: #0f172a; font-size: 24px; text-align: center; margin: 0 0 8px 0;">
+        ${isIcelandic ? 'Bókun afturkölluð' : 'Booking Cancelled'}
+      </h2>
+      <p style="color: #64748b; text-align: center; margin: 0 0 32px 0;">
+        ${isIcelandic 
+          ? 'Bókunin þín hefur verið afturkölluð. Ef þetta var ekki þú, vinsamlegast hafðu samband.' 
+          : 'Your booking has been cancelled. If this wasn\'t you, please contact us.'}
+      </p>
+
+      <!-- Booking Reference -->
+      <div style="background: #fee2e2; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 24px;">
+        <p style="color: #991b1b; font-size: 14px; margin: 0 0 4px 0;">
+          ${isIcelandic ? 'Bókunarnúmer' : 'Booking Reference'}
+        </p>
+        <p style="color: #7f1d1d; font-size: 24px; font-weight: bold; margin: 0; font-family: monospace; text-decoration: line-through;">
+          ${booking.reference}
+        </p>
+      </div>
+
+      <!-- Details -->
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+            <span style="color: #64748b; font-size: 14px;">${isIcelandic ? 'Bíll' : 'Vehicle'}</span><br>
+            <span style="color: #0f172a; font-weight: 500;">${booking.vehicle.licensePlate}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+            <span style="color: #64748b; font-size: 14px;">${isIcelandic ? 'Upprunaleg koma' : 'Original Drop-off'}</span><br>
+            <span style="color: #0f172a; font-weight: 500;">${formatDate(booking.dropOffTime, locale)}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 0;">
+            <span style="color: #64748b; font-size: 14px;">${isIcelandic ? 'Heildarverð' : 'Total Amount'}</span><br>
+            <span style="color: #0f172a; font-weight: 600; font-size: 18px;">${formatPrice(booking.totalPrice, locale)}</span>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Info Box -->
+      <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 12px; padding: 16px; margin-top: 24px;">
+        <p style="color: #92400e; font-size: 14px; margin: 0;">
+          ${isIcelandic 
+            ? '💡 Ef þú hefur greitt fyrir bókunina, mun endurgreiðsla berast innan 5-7 virkra daga.' 
+            : '💡 If you have paid for this booking, a refund will be processed within 5-7 business days.'}
+        </p>
+      </div>
+
+      <!-- CTA Button -->
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://carpark.is'}/booking" 
+           style="display: inline-block; background: #1aa7b3; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 500;">
+          ${isIcelandic ? 'Bóka aftur' : 'Book Again'}
+        </a>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align: center; margin-top: 32px; color: #64748b; font-size: 14px;">
+      <p style="margin: 0 0 8px 0;">CarPark - Keflavík International Airport</p>
+      <p style="margin: 0;">
+        ${isIcelandic ? 'Hafðu samband:' : 'Contact us:'} 
+        <a href="mailto:info@carpark.is" style="color: #1aa7b3;">info@carpark.is</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"${config.from.name}" <${config.from.email}>`,
+      to: booking.user.email!,
+      subject,
+      html,
+    });
+    console.log(`[Email] Cancellation sent to ${booking.user.email} for ${booking.reference}`);
+    return true;
+  } catch (error) {
+    console.error('[Email] Failed to send cancellation:', error);
+    return false;
+  }
+}

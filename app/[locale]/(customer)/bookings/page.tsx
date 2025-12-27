@@ -252,7 +252,7 @@ export default function BookingsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+      <div className="bg-white border-b border-slate-200">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -304,7 +304,7 @@ export default function BookingsPage() {
                 </div>
                 <div>
                   <p className="text-lg font-bold text-blue-900">{stats.active}</p>
-                  <p className="text-xs text-blue-600">{locale === 'is' ? 'Virkar' : 'Active'}</p>
+                  <p className="text-xs text-blue-700">{locale === 'is' ? 'Virkar' : 'Active'}</p>
                 </div>
               </div>
             </div>
@@ -315,7 +315,7 @@ export default function BookingsPage() {
                 </div>
                 <div>
                   <p className="text-lg font-bold text-green-900">{stats.upcoming}</p>
-                  <p className="text-xs text-green-600">{locale === 'is' ? 'Framundan' : 'Upcoming'}</p>
+                  <p className="text-xs text-green-700">{locale === 'is' ? 'Framundan' : 'Upcoming'}</p>
                 </div>
               </div>
             </div>
@@ -569,11 +569,10 @@ function BookingCard({
                     {booking.reference}
                   </span>
                   <span className={cn(
-                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium',
-                    statusConfig.badgeBg,
-                    statusConfig.color
+                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-white',
+                    statusConfig.badgeBg
                   )}>
-                    <span className={cn('w-1.5 h-1.5 rounded-full', statusConfig.bg.replace('bg-', 'bg-').replace('/10', '-500'))} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
                     {statusConfig.label[locale as 'is' | 'en']}
                   </span>
                 </div>
