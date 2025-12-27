@@ -97,20 +97,34 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorMessage(null);
 
-    // Determine redirect URL before sign in
-    const redirectUrl = `/${locale}/operator/dashboard`;
-
     try {
-      // Use redirect: true to let NextAuth handle the redirect properly
-      // This ensures cookies are set correctly before navigation
-      await signIn('staff-pin', {
+      // Use redirect: false so we can handle role-based redirect ourselves
+      const result = await signIn('staff-pin', {
         email,
         pin,
-        redirect: true,
-        callbackUrl: redirectUrl,
+        redirect: false,
       });
-      
-      // If we get here, there was an error (redirect: true would have navigated away)
+
+      if (result?.error) {
+        const errorMap: Record<string, string> = {
+          'CredentialsSignin': locale === 'is' ? 'Rangt netfang eða PIN' : 'Invalid email or PIN',
+          'Default': locale === 'is' ? 'Villa við innskráningu' : 'Error signing in',
+        };
+        setErrorMessage(errorMap[result.error] || errorMap['Default']);
+        setIsLoading(false);
+        return;
+      }
+
+      // Successful login - fetch session to get role
+      const session = await getSession();
+      const role = session?.user?.role;
+
+      // Redirect based on role
+      if (role === 'ADMIN') {
+        window.location.replace(`/${locale}/admin/dashboard`);
+      } else {
+        window.location.replace(`/${locale}/operator/dashboard`);
+      }
     } catch (err) {
       setErrorMessage(locale === 'is' ? 'Óvænt villa kom upp' : 'An unexpected error occurred');
       setIsLoading(false);
