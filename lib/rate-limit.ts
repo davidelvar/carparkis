@@ -70,6 +70,39 @@ export function rateLimit(
   };
 }
 
+/**
+ * Check if request is from allowed origin
+ */
+export function isAllowedOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  
+  // In development, allow localhost
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXTAUTH_URL,
+  ].filter(Boolean);
+  
+  // Check origin header
+  if (origin && allowedOrigins.some(allowed => origin.startsWith(allowed!))) {
+    return true;
+  }
+  
+  // Check referer header
+  if (referer && allowedOrigins.some(allowed => referer.startsWith(allowed!))) {
+    return true;
+  }
+  
+  // Allow server-side requests (no origin/referer) - these are internal
+  if (!origin && !referer) {
+    return true;
+  }
+  
+  return false;
+}
+
 // Pre-configured rate limiters for different use cases
 export const rateLimits = {
   // Very strict - for sensitive operations
@@ -101,5 +134,11 @@ export const rateLimits = {
     interval: 60 * 1000,
     uniqueTokenPerInterval: 500,
     limit: 20, // 20 lookups per minute
+  },
+  // Flight lookups - external API
+  flights: {
+    interval: 60 * 1000,
+    uniqueTokenPerInterval: 500,
+    limit: 30, // 30 requests per minute
   },
 };

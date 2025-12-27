@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getArrivals } from '@/lib/isavia/client';
-import { checkRateLimit, getClientIp, isAllowedOrigin } from '@/lib/utils/rate-limit';
-
-// Rate limit: 30 requests per minute per IP
-const RATE_LIMIT_CONFIG = { windowMs: 60 * 1000, maxRequests: 30 };
+import { rateLimit, rateLimits, isAllowedOrigin } from '@/lib/rate-limit';
 
 // Cache duration: 30 minutes (client-side)
 const CACHE_MAX_AGE = 30 * 60;
@@ -18,17 +15,20 @@ export async function GET(request: Request) {
   }
 
   // Rate limiting
-  const clientIp = getClientIp(request);
-  const rateLimit = checkRateLimit(`flights:${clientIp}`, RATE_LIMIT_CONFIG);
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+             request.headers.get('x-real-ip') || 
+             'anonymous';
+  const { success, remaining, reset } = rateLimit(ip, 'flights', rateLimits.flights);
   
-  if (!rateLimit.allowed) {
+  if (!success) {
     return NextResponse.json(
       { success: false, error: 'Too many requests. Please try again later.' },
       { 
         status: 429,
         headers: {
-          'Retry-After': String(rateLimit.resetIn),
           'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': reset.toString(),
+          'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString(),
         }
       }
     );
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 
     // Add cache headers
     response.headers.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE}, s-maxage=${CACHE_MAX_AGE}`);
-    response.headers.set('X-RateLimit-Remaining', String(rateLimit.remaining));
+    response.headers.set('X-RateLimit-Remaining', String(remaining));
     
     return response;
   } catch (error) {
