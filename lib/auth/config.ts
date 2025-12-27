@@ -138,6 +138,10 @@ export const authConfig: NextAuthConfig = {
       // Handle callback URLs properly
       // If it's a relative URL, prepend baseUrl
       if (url.startsWith('/')) {
+        // Make sure we don't redirect back to login after successful auth
+        if (url.includes('/login')) {
+          return `${baseUrl}/is`;
+        }
         return `${baseUrl}${url}`;
       }
       
@@ -145,6 +149,10 @@ export const authConfig: NextAuthConfig = {
       try {
         const urlObj = new URL(url);
         if (urlObj.origin === baseUrl) {
+          // Make sure we don't redirect back to login after successful auth
+          if (urlObj.pathname.includes('/login')) {
+            return `${baseUrl}/is`;
+          }
           return url;
         }
       } catch {

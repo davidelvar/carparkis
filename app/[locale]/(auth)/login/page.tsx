@@ -26,6 +26,23 @@ export default function LoginPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Handle error from URL query params (when redirect: true is used)
+  useEffect(() => {
+    if (error) {
+      const errorMap: Record<string, string> = {
+        'CredentialsSignin': locale === 'is' ? 'Rangt netfang eða PIN' : 'Invalid email or PIN',
+        'OAuthSignin': locale === 'is' ? 'Villa við innskráningu' : 'Error signing in',
+        'OAuthCallback': locale === 'is' ? 'Villa við innskráningu' : 'Error signing in',
+        'OAuthCreateAccount': locale === 'is' ? 'Villa við að búa til aðgang' : 'Error creating account',
+        'EmailCreateAccount': locale === 'is' ? 'Villa við að búa til aðgang' : 'Error creating account',
+        'Callback': locale === 'is' ? 'Villa við innskráningu' : 'Error signing in',
+        'Default': locale === 'is' ? 'Villa við innskráningu' : 'Error signing in',
+      };
+      setErrorMessage(errorMap[error] || errorMap['Default']);
+      setLoginMode('staff'); // Show staff form if there was a PIN error
+    }
+  }, [error, locale]);
+
   // Redirect if already logged in (only once)
   useEffect(() => {
     if (status === 'authenticated' && session?.user && !hasRedirected.current) {
@@ -80,44 +97,20 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorMessage(null);
 
+    // Determine redirect URL before sign in
+    const redirectUrl = `/${locale}/operator/dashboard`;
+
     try {
-      const result = await signIn('staff-pin', {
+      // Use redirect: true to let NextAuth handle the redirect properly
+      // This ensures cookies are set correctly before navigation
+      await signIn('staff-pin', {
         email,
         pin,
-        redirect: false,
+        redirect: true,
+        callbackUrl: redirectUrl,
       });
-
-      if (result?.error) {
-        // Map error messages to user-friendly text
-        const errorMap: Record<string, string> = {
-          'CredentialsSignin': locale === 'is' ? 'Rangt netfang eða PIN' : 'Invalid email or PIN',
-          'Invalid credentials': locale === 'is' ? 'Rangt netfang eða PIN' : 'Invalid email or PIN',
-          'PIN login is only available for staff': locale === 'is' ? 'PIN innskráning er aðeins fyrir starfsfólk' : 'PIN login is only available for staff',
-          'PIN not set. Contact administrator.': locale === 'is' ? 'PIN ekki stillt. Hafðu samband við stjórnanda.' : 'PIN not set. Contact administrator.',
-          'Invalid PIN': locale === 'is' ? 'Rangur PIN' : 'Invalid PIN',
-        };
-        setErrorMessage(errorMap[result.error] || result.error);
-        setIsLoading(false);
-      } else if (result?.ok) {
-        // Wait for the session cookie to be established
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        const session = await getSession();
-        let redirectUrl: string;
-        
-        // Always redirect based on role for staff (ignore callbackUrl)
-        if (session?.user?.role === 'ADMIN') {
-          redirectUrl = `/${locale}/admin/dashboard`;
-        } else if (session?.user?.role === 'OPERATOR') {
-          redirectUrl = `/${locale}/operator/dashboard`;
-        } else {
-          redirectUrl = `/${locale}`;
-        }
-        
-        // Mark as redirected to prevent useEffect from triggering another redirect
-        hasRedirected.current = true;
-        window.location.replace(redirectUrl);
-      }
+      
+      // If we get here, there was an error (redirect: true would have navigated away)
     } catch (err) {
       setErrorMessage(locale === 'is' ? 'Óvænt villa kom upp' : 'An unexpected error occurred');
       setIsLoading(false);
