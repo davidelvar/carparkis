@@ -44,9 +44,17 @@ export default async function proxy(request: NextRequest) {
 
   if (isProtected) {
     // Use JWT token check instead of session (Edge compatible)
+    const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+    
+    // getToken auto-detects the cookie name based on secure context
+    // It looks for __Secure-authjs.session-token (HTTPS) or authjs.session-token (HTTP)
     const token = await getToken({ 
       req: request,
-      secret: process.env.AUTH_SECRET,
+      secret,
+      // Use the same salt as NextAuth v5
+      salt: process.env.NODE_ENV === 'production'
+        ? '__Secure-authjs.session-token'
+        : 'authjs.session-token',
     });
 
     if (!token) {
