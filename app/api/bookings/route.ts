@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma';
 import { generateBookingReference } from '@/lib/utils';
 import { auth } from '@/lib/auth/config';
 import { z } from 'zod';
+import { rateLimit, rateLimits } from '@/lib/rate-limit';
 
 const createBookingSchema = z.object({
   licensePlate: z.string().min(1),
@@ -36,6 +37,27 @@ const createBookingSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Rate limit booking creation to prevent spam
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+             request.headers.get('x-real-ip') || 
+             'anonymous';
+  
+  const { success, remaining, reset } = rateLimit(ip, 'booking', rateLimits.booking);
+  
+  if (!success) {
+    return NextResponse.json(
+      { success: false, error: 'Too many booking requests. Please try again later.' },
+      { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': reset.toString(),
+          'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString(),
+        }
+      }
+    );
+  }
+
   try {
     const body = await request.json();
     const data = createBookingSchema.parse(body);

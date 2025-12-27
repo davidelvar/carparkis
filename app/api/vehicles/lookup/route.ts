@@ -1,8 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { lookupVehicle, lookupVehicleMock } from '@/lib/samgongustofa/client';
 import { isValidIcelandicLicensePlate, normalizeLicensePlate } from '@/lib/utils';
+import { rateLimit, rateLimits } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
+  // Rate limit vehicle lookups to prevent registry scraping
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+             request.headers.get('x-real-ip') || 
+             'anonymous';
+  
+  const { success, remaining, reset } = rateLimit(ip, 'vehicle-lookup', rateLimits.vehicleLookup);
+  
+  if (!success) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please try again later.' },
+      { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': reset.toString(),
+          'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString(),
+        }
+      }
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const plate = searchParams.get('plate');
 
