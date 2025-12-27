@@ -33,13 +33,135 @@ import {
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://carparkis.vercel.app';
+
+  if (locale === 'is') {
+    return {
+      title: 'CarPark - Bílastæði við Keflavíkurflugvöll | Bókaðu núna',
+      description: 'Öruggt og þægilegt bílastæði við Keflavíkurflugvöll. Bókaðu á netinu, veldu flugið þitt, og bættu við aukaþjónustu eins og bílþvotti, hleðslu rafbíla og innri þrif. Hagstæð verð og 24/7 öryggisvöktun.',
+      keywords: [
+        'bílastæði keflavíkurflugvöllur', 'flugvallarbílastæði', 'bílastæði keflavík',
+        'langvarsstæði flugvöllur', 'örugg bílastæði', 'bílþvottur flugvöllur',
+        'rafbíla hleðsla keflavík', 'carpark iceland', 'parking kef'
+      ],
+      openGraph: {
+        title: 'CarPark - Bílastæði við Keflavíkurflugvöll',
+        description: 'Öruggt og þægilegt bílastæði við Keflavíkurflugvöll. Bókaðu á netinu með aukaþjónustu.',
+        url: `${siteUrl}/is`,
+        locale: 'is_IS',
+      },
+      alternates: {
+        canonical: `${siteUrl}/is`,
+        languages: {
+          'is': `${siteUrl}/is`,
+          'en': `${siteUrl}/en`,
+        },
+      },
+    };
+  }
 
   return {
-    title: locale === 'is' ? 'CarPark - Bílastæði við Keflavíkurflugvöll' : 'CarPark - Airport Parking at Keflavík',
-    description: locale === 'is' 
-      ? 'Öruggt og þægilegt bílastæði við Keflavíkurflugvöll. Bókaðu á netinu, veldu flugið þitt, og bættu við aukaþjónustu eins og þvotti og hleðslu.'
-      : 'Secure and convenient parking at Keflavík Airport. Book online, select your flight, and add services like car wash and EV charging.',
+    title: 'CarPark - Airport Parking at Keflavík | Book Now',
+    description: 'Secure and convenient parking at Keflavík Airport, Iceland. Book online, select your flight, and add services like car wash, EV charging, and interior cleaning. Competitive prices with 24/7 security.',
+    keywords: [
+      'keflavik airport parking', 'iceland airport parking', 'kef parking',
+      'parking near keflavik airport', 'secure airport parking', 'long term parking iceland',
+      'car wash airport', 'ev charging keflavik', 'carpark keflavik'
+    ],
+    openGraph: {
+      title: 'CarPark - Airport Parking at Keflavík',
+      description: 'Secure and convenient parking at Keflavík Airport with online booking and extra services.',
+      url: `${siteUrl}/en`,
+      locale: 'en_US',
+    },
+    alternates: {
+      canonical: `${siteUrl}/en`,
+      languages: {
+        'is': `${siteUrl}/is`,
+        'en': `${siteUrl}/en`,
+      },
+    },
   };
+}
+
+// JSON-LD structured data for SEO
+function JsonLd({ locale }: { locale: string }) {
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://carparkis.vercel.app';
+  
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    '@id': `${siteUrl}/#organization`,
+    name: 'CarPark',
+    alternateName: 'CarPark Keflavík',
+    description: locale === 'is' 
+      ? 'Öruggt og þægilegt bílastæði við Keflavíkurflugvöll'
+      : 'Secure and convenient parking at Keflavík Airport',
+    url: siteUrl,
+    logo: `${siteUrl}/images/logo.png`,
+    image: `${siteUrl}/images/og-image.jpg`,
+    telephone: '+354-XXX-XXXX', // Update with actual phone
+    email: 'info@carpark.is', // Update with actual email
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: 'Keflavíkurflugvöllur',
+      addressLocality: 'Keflavík',
+      postalCode: '235',
+      addressCountry: 'IS',
+    },
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: 63.985,
+      longitude: -22.605,
+    },
+    openingHoursSpecification: {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+      opens: '00:00',
+      closes: '23:59',
+    },
+    priceRange: '$$',
+    currenciesAccepted: 'ISK',
+    paymentAccepted: 'Credit Card',
+    areaServed: {
+      '@type': 'Place',
+      name: 'Keflavík International Airport',
+    },
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: locale === 'is' ? 'Bílastæðaþjónusta' : 'Parking Services',
+      itemListElement: [
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Service',
+            name: locale === 'is' ? 'Bílastæði' : 'Parking',
+          },
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Service',
+            name: locale === 'is' ? 'Bílþvottur' : 'Car Wash',
+          },
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Service',
+            name: locale === 'is' ? 'Rafbílahleðsla' : 'EV Charging',
+          },
+        },
+      ],
+    },
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+    />
+  );
 }
 
 export default function HomePage() {
@@ -160,7 +282,9 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="relative">
+    <>
+      <JsonLd locale={locale} />
+      <div className="relative">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-[#255da0]">
         {/* Decorative shapes */}
@@ -401,5 +525,6 @@ export default function HomePage() {
       {/* Location Map */}
       <LocationMap />
     </div>
+    </>
   );
 }
