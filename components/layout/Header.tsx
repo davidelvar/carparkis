@@ -215,21 +215,6 @@ export default function Header() {
                     
                     {/* Menu items */}
                     <div className="p-2">
-                      <Link
-                        href={`/${locale}/bookings`}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors group"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors">
-                          <LayoutDashboard className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold">{t('myBookings')}</p>
-                          <p className="text-xs text-slate-500">{locale === 'is' ? 'Skoða og breyta bókunum' : 'View and manage bookings'}</p>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </Link>
-
                       {(userRole === 'OPERATOR' || userRole === 'ADMIN') && (
                         <Link
                           href={`/${locale}/operator/dashboard`}
@@ -263,6 +248,21 @@ export default function Header() {
                           <ArrowRight className="h-4 w-4 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </Link>
                       )}
+
+                      <Link
+                        href={`/${locale}/bookings`}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors group"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors">
+                          <LayoutDashboard className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold">{t('myBookings')}</p>
+                          <p className="text-xs text-slate-500">{locale === 'is' ? 'Skoða og breyta bókunum' : 'View and manage bookings'}</p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </Link>
 
                       {/* My Account */}
                       <Link
