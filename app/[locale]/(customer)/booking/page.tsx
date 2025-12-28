@@ -127,22 +127,9 @@ export default function BookingPage() {
   const handleReservationExpired = useCallback(() => {
     onReservationExpired();
     setReservationExpired(true);
+    // Clear saved booking state when reservation expires
+    localStorage.removeItem(STORAGE_KEY);
   }, [onReservationExpired]);
-
-  // Create reservation when dates are set (after flight step)
-  useEffect(() => {
-    const lotId = bookingData.lotId || defaultLotId;
-    if (
-      bookingData.dropOffTime &&
-      bookingData.pickUpTime &&
-      lotId &&
-      currentStep !== 'vehicle' &&
-      !reservation &&
-      !reservationExpired
-    ) {
-      createReservation();
-    }
-  }, [bookingData.dropOffTime, bookingData.pickUpTime, bookingData.lotId, defaultLotId, currentStep, reservation, reservationExpired, createReservation]);
 
   // Check for saved booking on mount
   useEffect(() => {
@@ -201,11 +188,29 @@ export default function BookingPage() {
     }
   }, [searchParams]);
 
+  // State to trigger reservation creation after resume
+  const [pendingReservationOnResume, setPendingReservationOnResume] = useState(false);
+
+  // Create reservation after state has settled from resume
+  useEffect(() => {
+    if (pendingReservationOnResume && bookingData.dropOffTime && bookingData.pickUpTime && !reservation) {
+      setPendingReservationOnResume(false);
+      createReservation();
+    }
+  }, [pendingReservationOnResume, bookingData.dropOffTime, bookingData.pickUpTime, reservation, createReservation]);
+
   const resumeBooking = () => {
     if (savedBooking) {
+      // Restore the booking data
       setBookingData(savedBooking.data);
-      setCurrentStep(savedBooking.step);
       setCompletedSteps(new Set(savedBooking.completedSteps));
+      setCurrentStep(savedBooking.step);
+      
+      // If resuming to addons or summary step, trigger reservation creation
+      const needsReservation = savedBooking.step === 'addons' || savedBooking.step === 'summary';
+      if (needsReservation) {
+        setPendingReservationOnResume(true);
+      }
     }
     setShowResumePrompt(false);
   };
@@ -228,9 +233,18 @@ export default function BookingPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const nextStep = () => {
+  const nextStep = async () => {
     const currentIndex = STEPS.findIndex(s => s.id === currentStep);
     if (currentIndex < STEPS.length - 1) {
+      // Create reservation when completing the vehicle step (moving to flight)
+      // This gives user time to see the timer while entering flight details
+      if (currentStep === 'vehicle' && !reservation && !reservationExpired) {
+        const lotId = bookingData.lotId || defaultLotId;
+        if (lotId && bookingData.dropOffTime && bookingData.pickUpTime) {
+          await createReservation();
+        }
+      }
+      
       setCompletedSteps(prev => new Set([...prev, currentStep]));
       setCurrentStep(STEPS[currentIndex + 1].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -381,7 +395,7 @@ export default function BookingPage() {
           )}
         </AnimatePresence>
 
-        {/* Reservation Timer */}
+        {/* Reservation Timer - show on flight, addons, and summary steps */}
         {reservation && currentStep !== 'vehicle' && (
           <div className="mb-6">
             <ReservationTimer

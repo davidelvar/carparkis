@@ -528,7 +528,7 @@ export default function SummaryStep({ data, onBack, onUpdate }: SummaryStepProps
                 <p className="text-primary-200 text-sm">{locale === 'is' ? 'Samtals' : 'Total'}</p>
                 <p className="text-xs text-primary-300">{locale === 'is' ? 'VSK innifalinn' : 'VAT included'}</p>
               </div>
-              <p className="text-4xl font-bold">{formatPrice(totalPrice, locale)}</p>
+              <p className="text-2xl sm:text-4xl font-bold">{formatPrice(totalPrice, locale)}</p>
             </div>
           </div>
 
