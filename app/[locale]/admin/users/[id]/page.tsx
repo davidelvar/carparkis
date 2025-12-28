@@ -25,9 +25,11 @@ import {
   X,
   ExternalLink,
   Hash,
+  Key,
 } from 'lucide-react';
 import { cn, formatDate, formatPrice } from '@/lib/utils';
 import AdminShell from '@/components/admin/AdminShell';
+import PinKeypad from '@/components/ui/PinKeypad';
 import { Switch } from '@/components/ui/Switch';
 
 interface Vehicle {
@@ -112,6 +114,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
     role: 'CUSTOMER' as 'ADMIN' | 'OPERATOR' | 'CUSTOMER',
     phone: '',
     kennitala: '',
+    pin: '',
   });
 
   useEffect(() => {
@@ -130,6 +133,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           role: data.data.role,
           phone: data.data.phone || '',
           kennitala: data.data.kennitala || '',
+          pin: '',
         });
       }
     } catch (error) {
@@ -295,6 +299,26 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                   />
                 </div>
               </div>
+
+              {/* PIN field - only for ADMIN and OPERATOR */}
+              {(formData.role === 'ADMIN' || formData.role === 'OPERATOR') && (
+                <div className="pt-4 border-t border-slate-200">
+                  <label className="label flex items-center gap-2 mb-3">
+                    <Key className="h-4 w-4" />
+                    {locale === 'is' ? 'PIN-númer' : 'PIN Code'}
+                  </label>
+                  <PinKeypad
+                    value={formData.pin}
+                    onChange={(pin) => setFormData({ ...formData, pin })}
+                    locale={locale}
+                  />
+                  <p className="text-xs text-slate-500 mt-2 text-center">
+                    {locale === 'is' 
+                      ? 'Skilja eftir auðt til að halda núverandi PIN' 
+                      : 'Leave empty to keep current PIN'}
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button onClick={() => setIsEditing(false)} className="btn-secondary" disabled={isSaving}>

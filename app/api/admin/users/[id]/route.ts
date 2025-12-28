@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { auth } from '@/lib/auth/config';
+import bcrypt from 'bcryptjs';
 
 // GET single user
 export async function GET(
@@ -127,16 +128,24 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, role, phone, kennitala } = body;
+    const { name, role, phone, kennitala, pin } = body;
+
+    // Build update data
+    const updateData: Record<string, unknown> = {
+      name,
+      role,
+      phone,
+      kennitala,
+    };
+
+    // Hash PIN if provided (only for ADMIN/OPERATOR)
+    if (pin && (role === 'ADMIN' || role === 'OPERATOR')) {
+      updateData.pin = await bcrypt.hash(pin, 10);
+    }
 
     const user = await prisma.user.update({
       where: { id },
-      data: {
-        name,
-        role,
-        phone,
-        kennitala,
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,

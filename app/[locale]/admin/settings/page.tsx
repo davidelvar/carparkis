@@ -13,11 +13,13 @@ import {
   RefreshCw,
   Database,
   ExternalLink,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdminShell from '@/components/admin/AdminShell';
 import { useToast } from '@/components/ui/Toast';
 import { Switch } from '@/components/ui/Switch';
+import MarkdownEditor from '@/components/ui/MarkdownEditor';
 
 interface SettingsSection {
   id: string;
@@ -62,6 +64,12 @@ const SECTIONS: SettingsSection[] = [
     icon: <Database className="h-5 w-5" />,
     title: { is: 'Samþættingar', en: 'Integrations' },
     description: { is: 'Ytri þjónustur (Regla, Isavia)', en: 'External services (Regla, Isavia)' },
+  },
+  {
+    id: 'pages',
+    icon: <FileText className="h-5 w-5" />,
+    title: { is: 'Síður', en: 'Pages' },
+    description: { is: 'Skilmálar og persónuvernd', en: 'Terms and privacy pages' },
   },
 ];
 
@@ -108,6 +116,12 @@ export default function AdminSettingsPage() {
     reglaApiKey: '',
     isaviaEnabled: false,
     isaviaApiKey: '',
+
+    // Pages
+    termsContent: '',
+    termsContentEn: '',
+    privacyContent: '',
+    privacyContentEn: '',
   });
 
   // Load settings and check email config on mount
@@ -948,6 +962,98 @@ export default function AdminSettingsPage() {
                     ? 'Flugupplýsingar eru sóttar sjálfkrafa af kefairport.com til að aðstoða viðskiptavini við að velja rétta flugtíma.'
                     : 'Flight data is automatically fetched from kefairport.com to help customers select the correct flight times.'}
                 </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'pages':
+        return (
+          <div className="space-y-8">
+            {/* Terms */}
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary-600" />
+                {locale === 'is' ? 'Skilmálar' : 'Terms of Service'}
+              </h4>
+              <div className="space-y-6">
+                <div>
+                  <label className="label mb-2">{locale === 'is' ? 'Íslenska' : 'Icelandic'}</label>
+                  <MarkdownEditor
+                    value={settings.termsContent}
+                    onChange={(value) => setSettings({ ...settings, termsContent: value })}
+                    placeholder={locale === 'is' ? 'Skilmálar á íslensku...' : 'Terms in Icelandic...'}
+                    locale={locale}
+                    minHeight="250px"
+                  />
+                </div>
+                <div>
+                  <label className="label mb-2">{locale === 'is' ? 'Enska' : 'English'}</label>
+                  <MarkdownEditor
+                    value={settings.termsContentEn}
+                    onChange={(value) => setSettings({ ...settings, termsContentEn: value })}
+                    placeholder={locale === 'is' ? 'Skilmálar á ensku...' : 'Terms in English...'}
+                    locale={locale}
+                    minHeight="250px"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Privacy */}
+            <div className="pt-6 border-t border-slate-200">
+              <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary-600" />
+                {locale === 'is' ? 'Persónuverndarstefna' : 'Privacy Policy'}
+              </h4>
+              <div className="space-y-6">
+                <div>
+                  <label className="label mb-2">{locale === 'is' ? 'Íslenska' : 'Icelandic'}</label>
+                  <MarkdownEditor
+                    value={settings.privacyContent}
+                    onChange={(value) => setSettings({ ...settings, privacyContent: value })}
+                    placeholder={locale === 'is' ? 'Persónuverndarstefna á íslensku...' : 'Privacy policy in Icelandic...'}
+                    locale={locale}
+                    minHeight="250px"
+                  />
+                </div>
+                <div>
+                  <label className="label mb-2">{locale === 'is' ? 'Enska' : 'English'}</label>
+                  <MarkdownEditor
+                    value={settings.privacyContentEn}
+                    onChange={(value) => setSettings({ ...settings, privacyContentEn: value })}
+                    placeholder={locale === 'is' ? 'Persónuverndarstefna á ensku...' : 'Privacy policy in English...'}
+                    locale={locale}
+                    minHeight="250px"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-primary-50 border border-primary-200 rounded-lg flex items-start gap-3">
+              <ExternalLink className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-primary-900 mb-1">
+                  {locale === 'is' ? 'Forskoða síður' : 'Preview Pages'}
+                </p>
+                <div className="flex gap-4">
+                  <a 
+                    href={`/${locale}/terms`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary-600 hover:text-primary-700 underline"
+                  >
+                    {locale === 'is' ? 'Skilmálar' : 'Terms'}
+                  </a>
+                  <a 
+                    href={`/${locale}/privacy`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary-600 hover:text-primary-700 underline"
+                  >
+                    {locale === 'is' ? 'Persónuvernd' : 'Privacy'}
+                  </a>
+                </div>
               </div>
             </div>
           </div>

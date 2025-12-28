@@ -18,9 +18,11 @@ import {
   Save,
   X,
   Phone,
+  Key,
 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import AdminShell from '@/components/admin/AdminShell';
+import PinKeypad from '@/components/ui/PinKeypad';
 
 interface UserData {
   id: string;
@@ -69,6 +71,7 @@ export default function AdminUsersPage() {
     role: 'CUSTOMER' as 'ADMIN' | 'OPERATOR' | 'CUSTOMER',
     phone: '',
     kennitala: '',
+    pin: '',
   });
 
   const itemsPerPage = 20;
@@ -100,6 +103,7 @@ export default function AdminUsersPage() {
       role: user.role,
       phone: user.phone || '',
       kennitala: user.kennitala || '',
+      pin: '',
     });
     setIsPanelOpen(true);
   };
@@ -112,6 +116,7 @@ export default function AdminUsersPage() {
       role: 'CUSTOMER',
       phone: '',
       kennitala: '',
+      pin: '',
     });
     setIsPanelOpen(true);
   };
@@ -125,6 +130,7 @@ export default function AdminUsersPage() {
       role: 'CUSTOMER',
       phone: '',
       kennitala: '',
+      pin: '',
     });
   };
 
@@ -575,6 +581,28 @@ export default function AdminUsersPage() {
                     placeholder="000000-0000"
                   />
                 </div>
+
+                {/* PIN field - only for ADMIN and OPERATOR */}
+                {(formData.role === 'ADMIN' || formData.role === 'OPERATOR') && (
+                  <div>
+                    <label className="label flex items-center gap-2 mb-3">
+                      <Key className="h-4 w-4" />
+                      {locale === 'is' ? 'PIN-númer' : 'PIN Code'}
+                    </label>
+                    <PinKeypad
+                      value={formData.pin}
+                      onChange={(pin) => setFormData({ ...formData, pin })}
+                      locale={locale}
+                    />
+                    {editingUser && (
+                      <p className="text-xs text-slate-500 mt-2 text-center">
+                        {locale === 'is' 
+                          ? 'Skilja eftir auðt til að halda núverandi PIN' 
+                          : 'Leave empty to keep current PIN'}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

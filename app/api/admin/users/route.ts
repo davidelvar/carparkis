@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { auth } from '@/lib/auth/config';
+import bcrypt from 'bcryptjs';
 
 // GET all users
 export async function GET() {
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, email, role, phone, kennitala } = body;
+    const { name, email, role, phone, kennitala, pin } = body;
 
     if (!email) {
       return NextResponse.json(
@@ -72,14 +73,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Build create data
+    const createData: Record<string, unknown> = {
+      name: name || null,
+      email,
+      role: role || 'CUSTOMER',
+      phone: phone || null,
+      kennitala: kennitala || null,
+    };
+
+    // Hash PIN if provided (only for ADMIN/OPERATOR)
+    if (pin && (role === 'ADMIN' || role === 'OPERATOR')) {
+      createData.pin = await bcrypt.hash(pin, 10);
+    }
+
     const user = await prisma.user.create({
-      data: {
-        name: name || null,
-        email,
-        role: role || 'CUSTOMER',
-        phone: phone || null,
-        kennitala: kennitala || null,
-      },
+      data: createData as Parameters<typeof prisma.user.create>[0]['data'],
     });
 
     return NextResponse.json({ success: true, data: user });

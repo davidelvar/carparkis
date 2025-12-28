@@ -753,6 +753,218 @@ async function main() {
     ],
   });
 
+  // Seed Terms and Privacy pages
+  console.log('📄 Seeding terms and privacy pages...');
+  
+  const termsContentIs = `# Skilmálar þjónustu
+
+## 1. Almennt
+
+Þessir skilmálar gilda um notkun bílastæðaþjónustu CarPark.is við Keflavíkurflugvöll. Með því að bóka bílastæði samþykkir þú þessa skilmála í heild sinni.
+
+## 2. Bókunarskilmálar
+
+- Bókanir eru bindandi eftir staðfestingu greiðslu
+- Breytingar á bókun eru heimilaðar allt að 24 klukkustundum fyrir áætlaðan komutíma
+- Afbókunargjald er 10% af heildarverði ef afbókað er innan 48 klukkustunda
+
+## 3. Greiðslur
+
+- Allar greiðslur eru í íslenskum krónum (ISK)
+- Við tökum við greiðslukortum og öðrum rafrænum greiðslumátum
+- Verðið inniheldur virðisaukaskatt (VSK)
+
+## 4. Ábyrgð
+
+- CarPark.is ber ekki ábyrgð á tjóni sem verður á ökutækjum vegna náttúruhamfara eða óviðráðanlegra atvika
+- Viðskiptavinur ber ábyrgð á að læsa ökutækinu og skilja ekki verðmæti eftir sýnileg
+- Hámarksábyrgð okkar er takmörkuð við bókunarverðið
+
+## 5. Aukaþjónusta
+
+- Aukaþjónusta (þrif, hleðsla o.fl.) er framkvæmd á ábyrgð okkar
+- Ef þjónusta tekst ekki vegna aðstæðna er gjaldið endurgreitt
+
+## 6. Persónuvernd
+
+Við virðum persónuvernd og meðhöndlum öll gögn í samræmi við lög um persónuvernd. Sjá nánar í persónuverndarstefnu okkar.
+
+## 7. Kvartanir
+
+Allar kvartanir skal senda á netfangið support@carpark.is innan 14 daga frá þjónustu.
+
+*Síðast uppfært: Desember 2024*`;
+
+  const termsContentEn = `# Terms of Service
+
+## 1. General
+
+These terms apply to the use of CarPark.is parking services at Keflavík International Airport. By booking a parking space, you agree to these terms in their entirety.
+
+## 2. Booking Terms
+
+- Bookings are binding after payment confirmation
+- Changes to bookings are permitted up to 24 hours before scheduled arrival
+- Cancellation fee is 10% of the total price if cancelled within 48 hours
+
+## 3. Payments
+
+- All payments are in Icelandic Króna (ISK)
+- We accept credit cards and other electronic payment methods
+- The price includes Value Added Tax (VAT)
+
+## 4. Liability
+
+- CarPark.is is not liable for damage to vehicles due to natural disasters or force majeure
+- Customer is responsible for locking the vehicle and not leaving valuables visible
+- Our maximum liability is limited to the booking price
+
+## 5. Additional Services
+
+- Additional services (cleaning, charging, etc.) are performed at our responsibility
+- If a service cannot be completed due to circumstances, the fee will be refunded
+
+## 6. Privacy
+
+We respect privacy and handle all data in accordance with data protection laws. See our privacy policy for details.
+
+## 7. Complaints
+
+All complaints should be sent to support@carpark.is within 14 days of service.
+
+*Last updated: December 2024*`;
+
+  const privacyContentIs = `# Persónuverndarstefna
+
+## 1. Um okkur
+
+CarPark.is er rekið af [Fyrirtækisheiti], kt. 000000-0000, með aðsetur að [Heimilisfang]. Við erum ábyrgðaraðili persónuupplýsinga sem safnað er í tengslum við þjónustu okkar.
+
+## 2. Hvaða upplýsingum söfnum við?
+
+Við söfnum eftirfarandi upplýsingum:
+
+- **Persónuupplýsingar:** Nafn, netfang, símanúmer
+- **Ökutækjaupplýsingar:** Skráningarnúmer, tegund ökutækis
+- **Bókunarupplýsingar:** Dagsetningar, flugnúmer, valdar þjónustur
+- **Greiðsluupplýsingar:** Greiðslukortaupplýsingar eru meðhöndlaðar af öruggu greiðslukerfi
+
+## 3. Tilgangur vinnslu
+
+Við notum upplýsingarnar til að:
+
+- Veita bílastæðaþjónustu
+- Hafa samband vegna bókunar
+- Senda staðfestingar og áminninga
+- Bæta þjónustu okkar
+
+## 4. Varðveisla gagna
+
+- Bókunargögn eru varðveitt í 3 ár vegna bókhalds
+- Viðskiptamannareikningar eru varðveittir meðan þeir eru virkir
+- Þú getur óskað eftir eyðingu gagna hvenær sem er
+
+## 5. Öryggisráðstafanir
+
+Við notum:
+
+- Dulkóðaða tengingu (SSL/TLS)
+- Örugga netþjóna
+- Aðgangsstýringu starfsmanna
+- Reglubundna öryggisúttekt
+
+## 6. Réttindi þín
+
+Þú hefur rétt til að:
+
+- Fá aðgang að þínum upplýsingum
+- Leiðrétta rangar upplýsingar
+- Eyða upplýsingum
+- Flytja upplýsingar til annars aðila
+
+## 7. Hafa samband
+
+Ef þú hefur spurningar um persónuvernd, hafðu samband við okkur á privacy@carpark.is.
+
+*Síðast uppfært: Desember 2024*`;
+
+  const privacyContentEn = `# Privacy Policy
+
+## 1. About Us
+
+CarPark.is is operated by [Company Name], ID 000000-0000, located at [Address]. We are the data controller for personal information collected in connection with our services.
+
+## 2. What Information Do We Collect?
+
+We collect the following information:
+
+- **Personal Information:** Name, email, phone number
+- **Vehicle Information:** License plate number, vehicle type
+- **Booking Information:** Dates, flight numbers, selected services
+- **Payment Information:** Credit card information is handled by a secure payment system
+
+## 3. Purpose of Processing
+
+We use the information to:
+
+- Provide parking services
+- Contact you regarding bookings
+- Send confirmations and reminders
+- Improve our services
+
+## 4. Data Retention
+
+- Booking data is retained for 3 years for accounting purposes
+- Customer accounts are retained while active
+- You can request data deletion at any time
+
+## 5. Security Measures
+
+We use:
+
+- Encrypted connections (SSL/TLS)
+- Secure servers
+- Employee access controls
+- Regular security audits
+
+## 6. Your Rights
+
+You have the right to:
+
+- Access your information
+- Correct inaccurate information
+- Delete information
+- Transfer information to another party
+
+## 7. Contact Us
+
+If you have questions about privacy, contact us at privacy@carpark.is.
+
+*Last updated: December 2024*`;
+
+  await Promise.all([
+    prisma.setting.upsert({
+      where: { key: 'termsContent' },
+      update: { value: termsContentIs },
+      create: { key: 'termsContent', value: termsContentIs },
+    }),
+    prisma.setting.upsert({
+      where: { key: 'termsContentEn' },
+      update: { value: termsContentEn },
+      create: { key: 'termsContentEn', value: termsContentEn },
+    }),
+    prisma.setting.upsert({
+      where: { key: 'privacyContent' },
+      update: { value: privacyContentIs },
+      create: { key: 'privacyContent', value: privacyContentIs },
+    }),
+    prisma.setting.upsert({
+      where: { key: 'privacyContentEn' },
+      update: { value: privacyContentEn },
+      create: { key: 'privacyContentEn', value: privacyContentEn },
+    }),
+  ]);
+
   console.log('🎉 Seeded!');
 }
 
