@@ -34,6 +34,22 @@ import {
 } from 'lucide-react';
 import { cn, formatPrice } from '@/lib/utils';
 
+// Detect if device is mobile/touch
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
+}
+
 // Icon map matching backend CATEGORY_ICONS
 const ICON_MAP: Record<string, { icon: LucideIcon; bgColor: string; iconColor: string }> = {
   charging: { icon: Zap, bgColor: 'bg-green-50', iconColor: 'text-green-500' },
@@ -232,8 +248,11 @@ function MiniCalendar({
 export default function QuickBookingCard() {
   const locale = useLocale();
   const router = useRouter();
+  const isMobile = useIsMobile();
   const departureRef = useRef<HTMLDivElement>(null);
   const returnRef = useRef<HTMLDivElement>(null);
+  const departureInputRef = useRef<HTMLInputElement>(null);
+  const returnInputRef = useRef<HTMLInputElement>(null);
   
   // Service categories state
   const [categories, setCategories] = useState<Array<{
@@ -367,6 +386,23 @@ export default function QuickBookingCard() {
             <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
               {/* Departure date picker */}
               <div ref={departureRef} className="relative">
+                {/* Hidden native date input for mobile */}
+                <input
+                  ref={departureInputRef}
+                  type="date"
+                  value={departureDate}
+                  min={today}
+                  onChange={(e) => {
+                    const date = e.target.value;
+                    setDepartureDate(date);
+                    if (date > returnDate) {
+                      const newReturn = new Date(date);
+                      newReturn.setDate(newReturn.getDate() + 7);
+                      setReturnDate(newReturn.toISOString().split('T')[0]);
+                    }
+                  }}
+                  className="sr-only"
+                />
                 <div 
                   className={cn(
                     'p-4 rounded-2xl cursor-pointer transition-all group border-2',
@@ -374,7 +410,13 @@ export default function QuickBookingCard() {
                       ? 'bg-primary-50 border-primary-500 shadow-lg shadow-primary-500/20' 
                       : 'bg-white border-slate-200 hover:border-primary-300 hover:bg-slate-50 hover:shadow-md'
                   )}
-                  onClick={() => setOpenPicker(openPicker === 'departure' ? null : 'departure')}
+                  onClick={() => {
+                    if (isMobile) {
+                      departureInputRef.current?.showPicker();
+                    } else {
+                      setOpenPicker(openPicker === 'departure' ? null : 'departure');
+                    }
+                  }}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
@@ -401,7 +443,7 @@ export default function QuickBookingCard() {
                   </p>
                 </div>
                 
-                {openPicker === 'departure' && (
+                {!isMobile && openPicker === 'departure' && (
                   <div className="absolute top-full left-0 right-0 mt-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <MiniCalendar
                       value={departureDate}
@@ -435,6 +477,15 @@ export default function QuickBookingCard() {
 
               {/* Return date picker */}
               <div ref={returnRef} className="relative">
+                {/* Hidden native date input for mobile */}
+                <input
+                  ref={returnInputRef}
+                  type="date"
+                  value={returnDate}
+                  min={departureDate || today}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                  className="sr-only"
+                />
                 <div 
                   className={cn(
                     'p-4 rounded-2xl cursor-pointer transition-all group border-2',
@@ -442,7 +493,13 @@ export default function QuickBookingCard() {
                       ? 'bg-primary-50 border-primary-500 shadow-lg shadow-primary-500/20' 
                       : 'bg-white border-slate-200 hover:border-primary-300 hover:bg-slate-50 hover:shadow-md'
                   )}
-                  onClick={() => setOpenPicker(openPicker === 'return' ? null : 'return')}
+                  onClick={() => {
+                    if (isMobile) {
+                      returnInputRef.current?.showPicker();
+                    } else {
+                      setOpenPicker(openPicker === 'return' ? null : 'return');
+                    }
+                  }}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
@@ -469,7 +526,7 @@ export default function QuickBookingCard() {
                   </p>
                 </div>
                 
-                {openPicker === 'return' && (
+                {!isMobile && openPicker === 'return' && (
                   <div className="absolute top-full left-0 right-0 mt-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <MiniCalendar
                       value={returnDate}
