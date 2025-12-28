@@ -294,7 +294,7 @@ export default function HomePage() {
           <div className="absolute top-1/4 right-1/3 w-64 h-64 rounded-full bg-white/5" />
         </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 py-12 sm:py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="relative mx-auto max-w-7xl px-5 py-12 sm:py-16 sm:px-6 lg:px-8 lg:py-24">
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-center">
             {/* Left - Hero Text */}
             <div className="text-center lg:text-left lg:pr-4 xl:pr-8">
@@ -308,7 +308,7 @@ export default function HomePage() {
                 <span className="text-xs sm:text-sm text-white/70">Keflavík</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white">
+              <h1 className="text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white">
                 {locale === 'is' ? (
                   <>
                     Bílastæði við<br />
@@ -361,7 +361,7 @@ export default function HomePage() {
             </div>
 
             {/* Right - Quick booking card */}
-            <div className="relative">
+            <div className="relative w-full max-w-md mx-auto lg:max-w-none">
               <QuickBookingCard />
             </div>
           </div>

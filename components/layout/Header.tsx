@@ -152,11 +152,11 @@ export default function Header() {
               <span className="uppercase">{otherLocale}</span>
             </Link>
 
-            {/* User Menu or Login Button */}
+            {/* User Menu or Login Button - Hidden on mobile, shown on lg+ */}
             {status === 'loading' ? (
-              <div className="h-11 w-28 animate-pulse rounded-2xl bg-slate-100" />
+              <div className="hidden lg:block h-11 w-28 animate-pulse rounded-2xl bg-slate-100" />
             ) : session ? (
-              <div className="relative" ref={userMenuRef}>
+              <div className="hidden lg:block relative" ref={userMenuRef}>
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className={cn(
@@ -317,7 +317,7 @@ export default function Header() {
             ) : (
               <Link
                 href={`/${locale}/login`}
-                className="hidden sm:inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:bg-slate-800 hover:shadow-xl hover:scale-105"
+                className="hidden lg:inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:bg-slate-800 hover:shadow-xl hover:scale-105"
               >
                 <User className="h-4 w-4" />
                 {t('login')}
