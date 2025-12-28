@@ -39,7 +39,19 @@ import {
   LogOut,
   Globe,
   Plus,
+  BarChart3,
 } from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Bar,
+  BarChart,
+} from 'recharts';
 import { cn, formatTime, formatPrice } from '@/lib/utils';
 import type { BookingWithRelations } from '@/types';
 import { AddonStatus } from '@prisma/client';
@@ -53,6 +65,17 @@ interface DashboardStats {
   carsOnSite: number;
   pendingServices: number;
   upcomingBookings: number;
+  totalCapacity: number;
+}
+
+interface OccupancyForecast {
+  date: string;
+  day: number;
+  bookings: number;
+  occupancy: number;
+  capacity: number;
+  arrivals: number;
+  departures: number;
 }
 
 type TabType = 'arrivals' | 'departures' | 'onsite' | 'services' | 'upcoming';
@@ -100,7 +123,9 @@ export default function OperatorDashboard() {
     carsOnSite: 0,
     pendingServices: 0,
     upcomingBookings: 0,
+    totalCapacity: 100,
   });
+  const [occupancyForecast, setOccupancyForecast] = useState<OccupancyForecast[]>([]);
   const [bookings, setBookings] = useState<BookingWithRelations[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('arrivals');
   const [isLoading, setIsLoading] = useState(true);
@@ -111,6 +136,7 @@ export default function OperatorDashboard() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);
+  const [showOccupancyModal, setShowOccupancyModal] = useState(false);
   const [flightStatuses, setFlightStatuses] = useState<Record<string, FlightStatusData>>({});
   const settingsMenuRef = useRef<HTMLDivElement>(null);
 
@@ -235,16 +261,31 @@ export default function OperatorDashboard() {
           return dropOff > now && dropOff <= nextWeek && ['CONFIRMED', 'PENDING'].includes(b.status);
         });
 
-        setStats({
+        setStats(prev => ({
+          ...prev,
           todayArrivals: arrivals.length,
           todayDepartures: departures.length,
           carsOnSite: onSite.length,
           pendingServices,
           upcomingBookings: upcoming.length,
-        });
+        }));
 
         // Fetch flight statuses for today's arrivals and departures
         fetchFlightStatuses(result.data, today);
+      }
+
+      // Fetch occupancy forecast from admin dashboard API
+      try {
+        const dashboardRes = await fetch('/api/admin/dashboard');
+        const dashboardData = await dashboardRes.json();
+        if (dashboardData.occupancyForecast) {
+          setOccupancyForecast(dashboardData.occupancyForecast);
+        }
+        if (dashboardData.stats?.totalCapacity) {
+          setStats(prev => ({ ...prev, totalCapacity: dashboardData.stats.totalCapacity }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch occupancy forecast:', err);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -405,6 +446,21 @@ export default function OperatorDashboard() {
             
             {/* Right: Actions */}
             <div className="flex items-center gap-1 sm:gap-3">
+              {/* Occupancy Forecast Button */}
+              <button
+                onClick={() => setShowOccupancyModal(true)}
+                className="flex items-center gap-2 p-2 sm:px-3 sm:py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors relative"
+                title={locale === 'is' ? 'Nýtingarspá' : 'Occupancy Forecast'}
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline text-sm font-medium">
+                  {locale === 'is' ? 'Nýting' : 'Occupancy'}
+                </span>
+                {occupancyForecast.some(d => d.occupancy >= 80) && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500" />
+                )}
+              </button>
+              
               {/* Manual Booking Button */}
               <button
                 onClick={() => setShowManualBookingModal(true)}
@@ -643,6 +699,8 @@ export default function OperatorDashboard() {
               </div>
             )}
           </div>
+
+
         </div>
       </main>
 
@@ -667,6 +725,161 @@ export default function OperatorDashboard() {
           setShowManualBookingModal(false);
         }}
       />
+
+      {/* Occupancy Forecast Modal */}
+      {showOccupancyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setShowOccupancyModal(false)} 
+          />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-4 sm:p-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary-600" />
+                  {locale === 'is' ? 'Nýtingarspá næstu 30 daga' : 'Occupancy Forecast - Next 30 Days'}
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  {locale === 'is' ? `Hámark: ${stats.totalCapacity} bílastæði` : `Capacity: ${stats.totalCapacity} spaces`}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowOccupancyModal(false)}
+                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-5 w-5 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6">
+              {/* Legend */}
+              <div className="flex flex-wrap items-center gap-4 text-xs mb-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-primary-500" />
+                  <span className="text-slate-600">{locale === 'is' ? 'Nýting' : 'Occupancy'}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <span className="text-slate-600">{locale === 'is' ? 'Koma' : 'In'}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                  <span className="text-slate-600">{locale === 'is' ? 'Fara' : 'Out'}</span>
+                </div>
+              </div>
+              
+              {/* Chart */}
+              <div className="h-72 sm:h-96">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={occupancyForecast} margin={{ left: -10, right: 10, top: 10 }}>
+                    <defs>
+                      <linearGradient id="occupancyGradientModal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#255da0" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#255da0" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#64748b"
+                      fontSize={11}
+                      tickMargin={8}
+                      axisLine={false}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return date.getDate().toString();
+                      }}
+                      interval={1}
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      stroke="#64748b"
+                      fontSize={11}
+                      tickFormatter={(v) => `${v}%`}
+                      domain={[0, 100]}
+                      width={40}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="#64748b"
+                      fontSize={11}
+                      width={30}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const date = new Date(label);
+                        const dayName = date.toLocaleDateString(locale === 'is' ? 'is-IS' : 'en-GB', { weekday: 'short' });
+                        const dateStr = date.toLocaleDateString(locale === 'is' ? 'is-IS' : 'en-GB', { day: 'numeric', month: 'short' });
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white rounded-lg shadow-lg border border-slate-200 p-3 text-sm">
+                            <p className="font-medium text-slate-900 mb-2">{dayName}, {dateStr}</p>
+                            <div className="space-y-1">
+                              <p className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-primary-500" />
+                                <span className="text-slate-600">{locale === 'is' ? 'Nýting' : 'Occupancy'}:</span>
+                                <span className="font-medium">{data.occupancy}%</span>
+                              </p>
+                              <p className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                <span className="text-slate-600">{locale === 'is' ? 'Komur' : 'Check-ins'}:</span>
+                                <span className="font-medium">{data.arrivals}</span>
+                              </p>
+                              <p className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                                <span className="text-slate-600">{locale === 'is' ? 'Brottfarir' : 'Check-outs'}:</span>
+                                <span className="font-medium">{data.departures}</span>
+                              </p>
+                              <p className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                                <span className="text-slate-600">{locale === 'is' ? 'Bílar' : 'Cars'}:</span>
+                                <span className="font-medium">{data.bookings} / {data.capacity}</span>
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Area
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="occupancy"
+                      stroke="#255da0"
+                      strokeWidth={2}
+                      fill="url(#occupancyGradientModal)"
+                    />
+                    <Bar yAxisId="right" dataKey="arrivals" fill="#22c55e" radius={[2, 2, 0, 0]} barSize={8} />
+                    <Bar yAxisId="right" dataKey="departures" fill="#3b82f6" radius={[2, 2, 0, 0]} barSize={8} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {/* High occupancy warning */}
+              {occupancyForecast.some(d => d.occupancy >= 80) && (
+                <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-amber-800">
+                        {locale === 'is' ? 'Há nýting væntanleg' : 'High occupancy expected'}
+                      </p>
+                      <p className="text-amber-700 text-sm mt-1">
+                        {occupancyForecast
+                          .filter(d => d.occupancy >= 80)
+                          .map(d => new Date(d.date).toLocaleDateString(locale === 'is' ? 'is-IS' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' }))
+                          .join(', ')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

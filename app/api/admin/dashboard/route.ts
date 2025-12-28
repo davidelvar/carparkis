@@ -6,7 +6,8 @@ export async function GET() {
   try {
     const session = await auth();
     
-    if (!session?.user?.role || session.user.role !== 'ADMIN') {
+    // Allow both ADMIN and OPERATOR roles to access dashboard data
+    if (!session?.user?.role || !['ADMIN', 'OPERATOR'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
