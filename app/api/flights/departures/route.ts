@@ -1,20 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getDepartures } from '@/lib/isavia/client';
-import { rateLimit, rateLimits, isAllowedOrigin } from '@/lib/rate-limit';
+import { rateLimit, rateLimits } from '@/lib/rate-limit';
 
 // Cache duration: 30 minutes (client-side)
 const CACHE_MAX_AGE = 30 * 60;
 
 export async function GET(request: Request) {
-  // Check origin - only allow requests from our domain
-  if (!isAllowedOrigin(request)) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 403 }
-    );
-  }
-
-  // Rate limiting
+  // Rate limiting (origin check removed - public flight data)
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
              request.headers.get('x-real-ip') || 
              'anonymous';
