@@ -145,9 +145,10 @@ model Lot {
   instructions   String? @db.Text
   instructionsEn String? @db.Text
 
-  pricing  LotPricing[]
-  services LotService[]
-  bookings Booking[]
+  pricing      LotPricing[]
+  services     LotService[]
+  bookings     Booking[]
+  reservations SpotReservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -302,6 +303,37 @@ model Booking {
   @@index([status])
   @@index([dropOffTime])
   @@index([pickUpTime])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SPOT RESERVATIONS (Temporary holds during booking)
+// ─────────────────────────────────────────────────────────────
+
+model SpotReservation {
+  id        String   @id @default(cuid())
+  sessionId String   @unique // Browser session/fingerprint ID
+  
+  lot   Lot    @relation(fields: [lotId], references: [id])
+  lotId String
+  
+  startDate   DateTime // When they need the spot
+  endDate     DateTime // When they'll return
+  
+  expiresAt   DateTime // When this reservation hold expires
+  isActive    Boolean  @default(true)
+  
+  // Optional: link to user if logged in
+  userId      String?
+  
+  // Store partial booking data for resume
+  bookingData Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([lotId, startDate, endDate])
+  @@index([expiresAt])
+  @@index([sessionId])
 }
 
 model BookingAddon {

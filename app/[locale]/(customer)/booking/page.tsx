@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Car, Plane, Sparkles, CreditCard, Check, RefreshCw, X } from 'lucide-react';
+import { Car, Plane, Sparkles, CreditCard, Check, RefreshCw, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import VehicleStep from '@/components/booking/VehicleStep';
 import FlightStep from '@/components/booking/FlightStep';
 import AddonsStep from '@/components/booking/AddonsStep';
 import SummaryStep from '@/components/booking/SummaryStep';
+import ReservationTimer from '@/components/booking/ReservationTimer';
+import { useSpotReservation } from '@/hooks/useSpotReservation';
 
 const STEPS = [
   { id: 'vehicle', icon: Car },
@@ -58,6 +60,7 @@ interface SavedBookingState {
   step: StepId;
   completedSteps: StepId[];
   savedAt: number;
+  reservationSessionId?: string;
 }
 
 const initialData: BookingData = {
@@ -79,6 +82,67 @@ export default function BookingPage() {
   const [completedSteps, setCompletedSteps] = useState<Set<StepId>>(new Set());
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [savedBooking, setSavedBooking] = useState<SavedBookingState | null>(null);
+  const [reservationExpired, setReservationExpired] = useState(false);
+  const [defaultLotId, setDefaultLotId] = useState<string>('');
+
+  // Fetch default lot on mount
+  useEffect(() => {
+    const fetchDefaultLot = async () => {
+      try {
+        const res = await fetch('/api/lots');
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          const lotId = data.data[0].id;
+          setDefaultLotId(lotId);
+          // Set lotId if not already set
+          setBookingData(prev => prev.lotId ? prev : { ...prev, lotId });
+        }
+      } catch (err) {
+        console.error('Failed to fetch default lot:', err);
+      }
+    };
+    fetchDefaultLot();
+  }, []);
+
+  // Spot reservation hook
+  const {
+    reservation,
+    isLoading: isReservationLoading,
+    error: reservationError,
+    noSpotsAvailable,
+    createReservation,
+    extendReservation,
+    releaseReservation,
+    handleExpired: onReservationExpired,
+    clearError: clearReservationError,
+  } = useSpotReservation({
+    lotId: bookingData.lotId || defaultLotId,
+    startDate: bookingData.dropOffTime,
+    endDate: bookingData.pickUpTime,
+    bookingData,
+    enabled: !!(bookingData.dropOffTime && bookingData.pickUpTime && (bookingData.lotId || defaultLotId)),
+  });
+
+  // Handle reservation expiration
+  const handleReservationExpired = useCallback(() => {
+    onReservationExpired();
+    setReservationExpired(true);
+  }, [onReservationExpired]);
+
+  // Create reservation when dates are set (after flight step)
+  useEffect(() => {
+    const lotId = bookingData.lotId || defaultLotId;
+    if (
+      bookingData.dropOffTime &&
+      bookingData.pickUpTime &&
+      lotId &&
+      currentStep !== 'vehicle' &&
+      !reservation &&
+      !reservationExpired
+    ) {
+      createReservation();
+    }
+  }, [bookingData.dropOffTime, bookingData.pickUpTime, bookingData.lotId, defaultLotId, currentStep, reservation, reservationExpired, createReservation]);
 
   // Check for saved booking on mount
   useEffect(() => {
@@ -236,6 +300,97 @@ export default function BookingPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Reservation Expired Warning */}
+        <AnimatePresence>
+          {reservationExpired && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mb-6 rounded-2xl bg-red-50 border border-red-200 p-4"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-red-700">
+                    {locale === 'is' ? 'Frátekning rann út' : 'Reservation Expired'}
+                  </h3>
+                  <p className="text-sm text-red-600 mt-1">
+                    {locale === 'is'
+                      ? 'Plássið þitt var ekki lengur frátekið. Smelltu á "Endurnýja frátekningu" til að halda áfram.'
+                      : 'Your spot is no longer reserved. Click "Renew reservation" to continue.'}
+                  </p>
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={async () => {
+                        setReservationExpired(false);
+                        clearReservationError();
+                        await createReservation();
+                      }}
+                      className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium text-sm hover:bg-red-700 transition-colors"
+                    >
+                      {locale === 'is' ? 'Endurnýja frátekningu' : 'Renew reservation'}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setReservationExpired(false)}
+                  className="p-1 rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  <X className="h-5 w-5 text-red-600" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* No Spots Available Warning */}
+        <AnimatePresence>
+          {noSpotsAvailable && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 p-4"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-amber-700">
+                    {locale === 'is' ? 'Engin pláss laus' : 'No Spots Available'}
+                  </h3>
+                  <p className="text-sm text-amber-600 mt-1">
+                    {locale === 'is'
+                      ? 'Því miður eru engin pláss laus fyrir valdar dagsetningar. Vinsamlegast veldu aðrar dagsetningar.'
+                      : 'Unfortunately, no spots are available for the selected dates. Please choose different dates.'}
+                  </p>
+                </div>
+                <button
+                  onClick={clearReservationError}
+                  className="p-1 rounded-lg hover:bg-amber-100 transition-colors"
+                >
+                  <X className="h-5 w-5 text-amber-600" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Reservation Timer */}
+        {reservation && currentStep !== 'vehicle' && (
+          <div className="mb-6">
+            <ReservationTimer
+              expiresAt={reservation.expiresAt}
+              onExpired={handleReservationExpired}
+              onExtend={extendReservation}
+            />
+          </div>
+        )}
 
         {/* Header */}
         <div className="text-center mb-8">
