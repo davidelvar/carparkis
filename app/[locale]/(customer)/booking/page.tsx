@@ -207,8 +207,8 @@ export default function BookingPage() {
                   </h3>
                   <p className="text-sm text-primary-100 mt-1">
                     {locale === 'is' 
-                      ? `Þú varst að bóka fyrir ${savedBooking.data.licensePlate || 'ökutæki'}. Viltu halda áfram þar sem frá var horfið?`
-                      : `You were booking for ${savedBooking.data.licensePlate || 'a vehicle'}. Would you like to continue where you left off?`
+                      ? <>Þú varst að bóka fyrir <span className="font-bold text-white">{savedBooking.data.licensePlate || 'ökutæki'}</span>. Viltu halda áfram þar sem frá var horfið?</>
+                      : <>You were booking for <span className="font-bold text-white">{savedBooking.data.licensePlate || 'a vehicle'}</span>. Would you like to continue where you left off?</>
                     }
                   </p>
                   <div className="flex gap-3 mt-3">
