@@ -162,7 +162,7 @@ function FlightSelector({
 
         {/* Dropdown */}
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute top-full left-0 right-0 mt-2 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="rounded-xl bg-white border border-slate-200 shadow-xl max-h-80 overflow-hidden">
               {/* Flight list */}
               <div className="max-h-64 overflow-y-auto">

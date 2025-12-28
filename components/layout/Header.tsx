@@ -68,6 +68,7 @@ export default function Header() {
   };
 
   return (
+    <>
     <header className={cn(
       'sticky top-0 z-50 w-full border-b transition-all duration-300',
       isScrolled 
@@ -337,15 +338,20 @@ export default function Header() {
             </button>
           </div>
         </div>
+      </div>
+    </header>
 
-        {/* Mobile Navigation - Full screen overlay */}
-        <div
-          className={cn(
-            'lg:hidden fixed inset-x-0 top-[72px] bottom-0 bg-white/98 backdrop-blur-xl transition-all duration-300 z-40',
-            isMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
-          )}
-        >
-          <nav className="flex flex-col p-6 space-y-2">
+      {/* Mobile Navigation - OUTSIDE header to avoid sticky/fixed conflict */}
+      <div
+        className={cn(
+          'lg:hidden fixed inset-x-0 top-[72px] bottom-0 transition-all duration-300 overflow-y-auto',
+          isMenuOpen ? 'opacity-100 visible z-[60]' : 'opacity-0 invisible pointer-events-none z-[-1]'
+        )}
+      >
+        {/* Backdrop blur layer */}
+        <div className="absolute inset-0 bg-white backdrop-blur-xl" />
+        
+        <nav className="relative flex flex-col p-6 space-y-2 bg-white min-h-full">
             {/* Primary action - Book now */}
             <Link
               href={`/${locale}/booking`}
@@ -450,7 +456,7 @@ export default function Header() {
             {/* Bottom section */}
             <div className="flex-1" />
             
-            <div className="pt-4 border-t border-slate-200 space-y-3">
+            <div className="pt-4 border-t border-slate-200 space-y-3 bg-white">
               {session ? (
                 <>
                   {/* User info & Account link */}
@@ -503,7 +509,6 @@ export default function Header() {
             </div>
           </nav>
         </div>
-      </div>
-    </header>
+      </>
   );
 }
