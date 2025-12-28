@@ -384,14 +384,15 @@ export default function OperatorDashboard() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            {/* Left: Logo + Title */}
+            <div className="flex items-center gap-2 sm:gap-4">
               <Logo size="sm" />
-              <div className="h-8 w-px bg-slate-200" />
+              <div className="hidden sm:block h-8 w-px bg-slate-200" />
               <div>
-                <h1 className="text-lg font-bold text-slate-900">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900">
                   {locale === 'is' ? 'Rekstrarstjórn' : 'Operations'}
                 </h1>
-                <p className="text-xs text-slate-500">
+                <p className="hidden sm:block text-xs text-slate-500">
                   {currentTime ? currentTime.toLocaleDateString(locale === 'is' ? 'is-IS' : 'en-GB', { 
                     weekday: 'long', 
                     year: 'numeric', 
@@ -401,38 +402,34 @@ export default function OperatorDashboard() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1 sm:gap-3">
               {/* Manual Booking Button */}
               <button
                 onClick={() => setShowManualBookingModal(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#255da0] text-white hover:bg-[#1e4d85] transition-colors"
+                className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg bg-[#255da0] text-white hover:bg-[#1e4d85] transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline text-sm font-medium">
                   {locale === 'is' ? 'Ný bókun' : 'New Booking'}
                 </span>
               </button>
+              
+              {/* Refresh - icon only on mobile */}
               <button
                 onClick={fetchData}
                 disabled={isLoading}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                className="flex items-center gap-2 p-2 sm:px-3 sm:py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                title={locale === 'is' ? 'Uppfæra' : 'Refresh'}
               >
                 <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
                 <span className="hidden sm:inline text-sm font-medium">
                   {locale === 'is' ? 'Uppfæra' : 'Refresh'}
                 </span>
               </button>
-              {/* Language Switch */}
-              <button 
-                onClick={switchLanguage}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
-                title={locale === 'is' ? 'Switch to English' : 'Skipta yfir í íslensku'}
-              >
-                <Globe className="h-4 w-4" />
-                <span className="text-sm font-medium">
-                  {locale === 'is' ? 'English' : 'Íslenska'}
-                </span>
-              </button>
+              
+              {/* Settings menu - contains language switch on mobile */}
               <div className="relative" ref={settingsMenuRef}>
                 <button 
                   onClick={() => setShowSettingsMenu(!showSettingsMenu)}
@@ -453,6 +450,16 @@ export default function OperatorDashboard() {
                       <Car className="h-4 w-4" />
                       {locale === 'is' ? 'Forsíða' : 'Home'}
                     </Link>
+                    <button
+                      onClick={() => {
+                        switchLanguage();
+                        setShowSettingsMenu(false);
+                      }}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <Globe className="h-4 w-4" />
+                      {locale === 'is' ? 'English' : 'Íslenska'}
+                    </button>
                     <div className="my-1 border-t border-slate-100" />
                     <button
                       onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
@@ -473,26 +480,24 @@ export default function OperatorDashboard() {
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Tab Navigation */}
           <div className="bg-white rounded-xl border border-slate-200 p-1.5 sm:p-2">
-            {/* Mobile: Grid layout (2 columns + full width for last item if odd) */}
-            <div className="grid grid-cols-2 gap-1.5 sm:hidden">
-              {tabs.map((tab, index) => (
+            {/* Mobile: 5 icons in a row */}
+            <div className="flex sm:hidden">
+              {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl font-semibold transition-all relative',
-                    // Make last item span full width if odd number of tabs
-                    index === tabs.length - 1 && tabs.length % 2 === 1 && 'col-span-2',
+                    'flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg font-medium transition-all relative',
                     activeTab === tab.id
                       ? tab.color.active
-                      : 'text-slate-600 hover:bg-slate-100'
+                      : 'text-slate-500 hover:bg-slate-100'
                   )}
                 >
                   <div className="relative">
                     <tab.icon className="h-5 w-5" />
                     {tab.count > 0 && (
                       <span className={cn(
-                        'absolute -top-1.5 -right-2.5 px-1.5 py-0.5 rounded-full text-xs font-bold min-w-[1.25rem] text-center',
+                        'absolute -top-1 -right-2 px-1 min-w-[1rem] h-4 flex items-center justify-center rounded-full text-[10px] font-bold',
                         activeTab === tab.id 
                           ? 'bg-white/30 text-white' 
                           : tab.color.badge
@@ -501,8 +506,12 @@ export default function OperatorDashboard() {
                       </span>
                     )}
                   </div>
-                  <span className="text-xs leading-tight text-center">
-                    {tab.label[locale === 'is' ? 'is' : 'en']}
+                  <span className="text-[10px] leading-tight text-center truncate w-full px-0.5">
+                    {tab.id === 'arrivals' ? (locale === 'is' ? 'Komur' : 'In') :
+                     tab.id === 'departures' ? (locale === 'is' ? 'Brottf.' : 'Out') :
+                     tab.id === 'onsite' ? (locale === 'is' ? 'Á stað' : 'Site') :
+                     tab.id === 'services' ? (locale === 'is' ? 'Þjón.' : 'Svc') :
+                     (locale === 'is' ? 'Vænt.' : 'Soon')}
                   </span>
                 </button>
               ))}

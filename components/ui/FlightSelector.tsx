@@ -43,19 +43,42 @@ export default function FlightSelector({
   compact = false,
 }: FlightSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const selectedFlightData = flights.find(f => f.flightNumber === selectedFlight);
+
+  // Filter flights based on search query
+  const filteredFlights = flights.filter(flight => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      flight.flightNumber.toLowerCase().includes(query) ||
+      flight.airline?.toLowerCase().includes(query) ||
+      flight.destination?.toLowerCase().includes(query) ||
+      flight.origin?.toLowerCase().includes(query) ||
+      flight.time.includes(query)
+    );
+  });
 
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setSearchQuery('');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
 
   if (loading) {
     return (
@@ -164,50 +187,72 @@ export default function FlightSelector({
         {/* Dropdown */}
         {isOpen && (
           <div className="absolute top-full left-0 right-0 mt-2 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="rounded-xl bg-white border border-slate-200 shadow-xl max-h-80 overflow-hidden">
+            <div className="rounded-xl bg-white border border-slate-200 shadow-xl max-h-96 overflow-hidden flex flex-col">
+              {/* Search input */}
+              <div className="p-2 border-b border-slate-100">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={locale === 'is' ? 'Leita að flugi...' : 'Search flights...'}
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#255da0] focus:border-[#255da0]"
+                  />
+                </div>
+              </div>
+              
               {/* Flight list */}
-              <div className="max-h-64 overflow-y-auto">
-                {flights.map((flight, index) => (
-                  <button
-                    key={`${flight.flightNumber}-${flight.time}-${index}`}
-                    type="button"
-                    onClick={() => {
-                      onSelectFlight(flight);
-                      setIsOpen(false);
-                    }}
-                    className={cn(
-                      'w-full flex items-center gap-3 p-3 text-left transition-colors border-b border-slate-100 last:border-0',
-                      'hover:bg-slate-50',
-                      selectedFlight === flight.flightNumber && 'bg-blue-50'
-                    )}
-                  >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 shrink-0">
-                      <Clock className="h-4 w-4 text-slate-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900">{flight.time}</span>
-                        <span className="text-slate-400">·</span>
-                        <span className="font-medium text-slate-700">{flight.flightNumber}</span>
-                        {flight.airline && (
-                          <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                            {flight.airline}
-                          </span>
-                        )}
+              <div className="flex-1 overflow-y-auto max-h-64">
+                {filteredFlights.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-slate-500">
+                    {locale === 'is' ? 'Ekkert flug fannst' : 'No flights found'}
+                  </div>
+                ) : (
+                  filteredFlights.map((flight, index) => (
+                    <button
+                      key={`${flight.flightNumber}-${flight.time}-${index}`}
+                      type="button"
+                      onClick={() => {
+                        onSelectFlight(flight);
+                        setIsOpen(false);
+                        setSearchQuery('');
+                      }}
+                      className={cn(
+                        'w-full flex items-center gap-3 p-3 text-left transition-colors border-b border-slate-100 last:border-0',
+                        'hover:bg-slate-50',
+                        selectedFlight === flight.flightNumber && 'bg-blue-50'
+                      )}
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 shrink-0">
+                        <Clock className="h-4 w-4 text-slate-500" />
                       </div>
-                      <p className="text-sm text-slate-500 truncate">
-                        {type === 'departure' ? `→ ${flight.destination}` : `← ${flight.origin}`}
-                      </p>
-                    </div>
-                    {selectedFlight === flight.flightNumber && (
-                      <div className="h-5 w-5 rounded-full bg-[#255da0] flex items-center justify-center">
-                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-900">{flight.time}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="font-medium text-slate-700">{flight.flightNumber}</span>
+                          {flight.airline && (
+                            <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {flight.airline}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-500 truncate">
+                          {type === 'departure' ? `→ ${flight.destination}` : `← ${flight.origin}`}
+                        </p>
                       </div>
-                    )}
-                  </button>
-                ))}
+                      {selectedFlight === flight.flightNumber && (
+                        <div className="h-5 w-5 rounded-full bg-[#255da0] flex items-center justify-center">
+                          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))
+                )}
               </div>
 
               {/* Manual entry option */}
@@ -217,6 +262,7 @@ export default function FlightSelector({
                   onClick={() => {
                     setManual(true);
                     setIsOpen(false);
+                    setSearchQuery('');
                   }}
                   className="w-full flex items-center gap-2 p-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors"
                 >
