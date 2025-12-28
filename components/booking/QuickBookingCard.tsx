@@ -386,23 +386,25 @@ export default function QuickBookingCard() {
             <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
               {/* Departure date picker */}
               <div ref={departureRef} className="relative">
-                {/* Hidden native date input for mobile */}
-                <input
-                  ref={departureInputRef}
-                  type="date"
-                  value={departureDate}
-                  min={today}
-                  onChange={(e) => {
-                    const date = e.target.value;
-                    setDepartureDate(date);
-                    if (date > returnDate) {
-                      const newReturn = new Date(date);
-                      newReturn.setDate(newReturn.getDate() + 7);
-                      setReturnDate(newReturn.toISOString().split('T')[0]);
-                    }
-                  }}
-                  className="sr-only"
-                />
+                {/* Native date input - visible overlay on mobile for iOS compatibility */}
+                {isMobile && (
+                  <input
+                    ref={departureInputRef}
+                    type="date"
+                    value={departureDate}
+                    min={today}
+                    onChange={(e) => {
+                      const date = e.target.value;
+                      setDepartureDate(date);
+                      if (date > returnDate) {
+                        const newReturn = new Date(date);
+                        newReturn.setDate(newReturn.getDate() + 7);
+                        setReturnDate(newReturn.toISOString().split('T')[0]);
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                )}
                 <div 
                   className={cn(
                     'p-4 rounded-2xl cursor-pointer transition-all group border-2',
@@ -411,9 +413,7 @@ export default function QuickBookingCard() {
                       : 'bg-white border-slate-200 hover:border-primary-300 hover:bg-slate-50 hover:shadow-md'
                   )}
                   onClick={() => {
-                    if (isMobile) {
-                      departureInputRef.current?.showPicker();
-                    } else {
+                    if (!isMobile) {
                       setOpenPicker(openPicker === 'departure' ? null : 'departure');
                     }
                   }}
@@ -477,15 +477,17 @@ export default function QuickBookingCard() {
 
               {/* Return date picker */}
               <div ref={returnRef} className="relative">
-                {/* Hidden native date input for mobile */}
-                <input
-                  ref={returnInputRef}
-                  type="date"
-                  value={returnDate}
-                  min={departureDate || today}
-                  onChange={(e) => setReturnDate(e.target.value)}
-                  className="sr-only"
-                />
+                {/* Native date input - visible overlay on mobile for iOS compatibility */}
+                {isMobile && (
+                  <input
+                    ref={returnInputRef}
+                    type="date"
+                    value={returnDate}
+                    min={departureDate || today}
+                    onChange={(e) => setReturnDate(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                )}
                 <div 
                   className={cn(
                     'p-4 rounded-2xl cursor-pointer transition-all group border-2',
@@ -494,9 +496,7 @@ export default function QuickBookingCard() {
                       : 'bg-white border-slate-200 hover:border-primary-300 hover:bg-slate-50 hover:shadow-md'
                   )}
                   onClick={() => {
-                    if (isMobile) {
-                      returnInputRef.current?.showPicker();
-                    } else {
+                    if (!isMobile) {
                       setOpenPicker(openPicker === 'return' ? null : 'return');
                     }
                   }}
