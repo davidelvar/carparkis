@@ -459,21 +459,16 @@ export default function Header() {
             <div className="pt-4 border-t border-slate-200 space-y-3 bg-white">
               {session ? (
                 <>
-                  {/* User info & Account link */}
+                  {/* My Account - styled like other nav links */}
                   <Link
                     href={`/${locale}/account`}
-                    className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors"
+                    className="flex items-center gap-4 rounded-2xl bg-slate-50 px-5 py-4 text-base font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-200 text-slate-600">
                       <User className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 truncate">
-                        {session.user?.name || session.user?.email?.split('@')[0]}
-                      </p>
-                      <p className="text-sm text-slate-500">{locale === 'is' ? 'Reikningurinn minn' : 'My Account'}</p>
-                    </div>
+                    {locale === 'is' ? 'Reikningurinn minn' : 'My Account'}
                   </Link>
                   <button
                     onClick={() => {
